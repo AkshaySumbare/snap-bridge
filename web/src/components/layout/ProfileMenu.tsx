@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, LogOut, Moon, Sun, Trash2 } from "lucide-react";
+import {
+  Camera,
+  ChevronRight,
+  LogOut,
+  Moon,
+  Sun,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { useLogout } from "@/features/auth/hooks/useAuth";
 import { useDeleteAvatar, useUploadAvatar } from "@/features/profile/hooks/useProfile";
@@ -8,7 +16,11 @@ import { UserAvatar } from "./UserAvatar";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api-client";
 
-export function ProfileMenu() {
+interface ProfileMenuProps {
+  collapsed?: boolean;
+}
+
+export function ProfileMenu({ collapsed = false }: ProfileMenuProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const uploadAvatar = useUploadAvatar();
@@ -53,36 +65,48 @@ export function ProfileMenu() {
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-
     uploadAvatar.mutate(file);
     event.target.value = "";
   }
 
   if (!user) return null;
 
-  const isAvatarBusy = uploadAvatar.isPending || deleteAvatar.isPending;
+  const isBusy = uploadAvatar.isPending || deleteAvatar.isPending;
+  const displayName = user.name || user.email.split("@")[0];
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative w-full">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        disabled={isAvatarBusy}
+        onClick={() => setOpen((v) => !v)}
+        disabled={isBusy}
         className={cn(
-          "rounded-full transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
-          open && "ring-2 ring-brand-500/30 ring-offset-2",
-          isAvatarBusy && "opacity-60",
+          "flex w-full items-center gap-3 rounded-2xl bg-[var(--color-surface-muted)] p-2 transition-all duration-200 hover:bg-[var(--color-border)]/60",
+          collapsed && "justify-center rounded-full bg-transparent p-1 hover:bg-[var(--color-surface-muted)]",
+          open && !collapsed && "bg-[var(--color-border)]/40",
+          open && collapsed && "bg-[var(--color-surface-muted)]",
+          isBusy && "opacity-60",
         )}
-        aria-label="Open profile menu"
+        aria-label="Account menu"
         aria-expanded={open}
-        aria-haspopup="true"
       >
         <UserAvatar
           name={user.name}
           email={user.email}
           avatarUrl={user.avatarUrl}
-          size="sm"
+          size={collapsed ? "xs" : "sm"}
         />
+        {!collapsed && (
+          <>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="truncate text-sm font-medium text-[var(--color-text)]">{displayName}</p>
+              <p className="truncate text-xs text-[var(--color-text-muted)] capitalize">
+                {user.authProvider === "google" ? "Google account" : "Email account"}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-text-muted)]" />
+          </>
+        )}
       </button>
 
       <input
@@ -95,81 +119,100 @@ export function ProfileMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-72 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg shadow-black/10"
+          className={cn(
+            "absolute bottom-full z-50 mb-2 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl",
+            collapsed ? "left-0 w-72" : "left-0 right-0 w-full min-w-[16rem]",
+          )}
           role="menu"
         >
-          <div className="flex flex-col items-center border-b border-[var(--color-border)] px-4 py-4">
-            <UserAvatar
-              name={user.name}
-              email={user.email}
-              avatarUrl={user.avatarUrl}
-              size="lg"
-            />
-            <p className="mt-3 truncate text-sm font-semibold text-[var(--color-text)]">
-              {user.name || "SnapBridge user"}
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 border-b border-[var(--color-border)] px-4 py-3 text-left transition-colors hover:bg-[var(--color-surface-muted)]"
+            onClick={() => setOpen(false)}
+          >
+            <UserAvatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-[var(--color-text)]">{displayName}</p>
+              <p className="truncate text-xs text-[var(--color-text-muted)]">{user.email}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-text-muted)]" />
+          </button>
+
+          {avatarError && (
+            <p className="border-b border-[var(--color-border)] px-4 py-2 text-xs text-red-500">
+              {avatarError}
             </p>
-            <p className="truncate text-xs text-[var(--color-text-muted)]">{user.email}</p>
-            {avatarError && (
-              <p className="mt-2 text-center text-xs text-red-500">{avatarError}</p>
-            )}
-          </div>
+          )}
 
           <div className="p-1.5">
-            <button
-              type="button"
-              role="menuitem"
-              disabled={isAvatarBusy}
+            <MenuItem
+              icon={<Camera className="h-4 w-4" />}
+              label={user.avatarUrl ? "Replace photo" : "Add photo"}
+              disabled={isBusy}
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
-            >
-              <Camera className="h-4 w-4" />
-              {user.avatarUrl ? "Replace photo" : "Add photo"}
-            </button>
-
+            />
             {user.avatarUrl && (
-              <button
-                type="button"
-                role="menuitem"
-                disabled={isAvatarBusy}
+              <MenuItem
+                icon={<Trash2 className="h-4 w-4" />}
+                label="Remove photo"
+                disabled={isBusy}
                 onClick={() => deleteAvatar.mutate()}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove photo
-              </button>
+              />
             )}
-
-            <button
-              type="button"
-              role="menuitem"
+            <MenuItem
+              icon={<User className="h-4 w-4" />}
+              label="Profile"
+              onClick={() => setOpen(false)}
+            />
+            <MenuItem
+              icon={isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              label="Theme"
+              trailing={isDark ? "Dark" : "Light"}
               onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
-            >
-              <span className="flex items-center gap-2">
-                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                Theme
-              </span>
-              <span className="text-xs text-[var(--color-text-muted)]">
-                {isDark ? "Dark" : "Light"}
-              </span>
-            </button>
+            />
+          </div>
 
-            <button
-              type="button"
-              role="menuitem"
-              disabled={logout.isPending}
+          <div className="border-t border-[var(--color-border)] p-1.5">
+            <MenuItem
+              icon={<LogOut className="h-4 w-4" />}
+              label="Log out"
               onClick={() => {
                 setOpen(false);
                 logout.mutate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
+              disabled={logout.isPending}
+            />
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  trailing,
+  onClick,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  trailing?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+    >
+      <span className="text-[var(--color-text-muted)]">{icon}</span>
+      <span className="flex-1 text-left">{label}</span>
+      {trailing && <span className="text-xs text-[var(--color-text-muted)]">{trailing}</span>}
+    </button>
   );
 }

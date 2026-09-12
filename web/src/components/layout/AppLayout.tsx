@@ -1,25 +1,28 @@
 import { Outlet } from "react-router-dom";
-import { Logo } from "./Logo";
-import { AppNav, AppNavMobile } from "./AppNav";
-import { ProfileMenu } from "./ProfileMenu";
+import { AppSidebar } from "./AppSidebar";
+import { SidebarToggle } from "./SidebarToggle";
+import { useSidebarStore } from "@/stores/sidebar.store";
 
 export function AppLayout() {
-  return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md">
-        <div className="flex h-16 w-full items-center px-4 sm:px-6">
-          <Logo to="/dashboard" className="shrink-0" />
-          <AppNav />
-          <div className="ml-auto shrink-0 pl-4">
-            <ProfileMenu />
-          </div>
-        </div>
-        <AppNavMobile />
-      </header>
+  const isOpen = useSidebarStore((s) => s.isOpen);
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <Outlet />
-      </main>
+  return (
+    <div className="flex min-h-screen bg-[var(--color-bg)]">
+      <AppSidebar />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {!isOpen && (
+          <header className="flex h-14 shrink-0 items-center border-b border-[var(--color-border)] px-4 md:hidden">
+            <SidebarToggle />
+          </header>
+        )}
+
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-6xl">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

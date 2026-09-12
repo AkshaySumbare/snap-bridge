@@ -5,7 +5,7 @@ interface UserAvatarProps {
   name: string | null;
   email: string;
   avatarUrl?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
@@ -21,6 +21,7 @@ function getInitials(name: string | null | undefined, email: string): string {
 }
 
 const sizeMap = {
+  xs: "h-7 w-7 text-[10px]",
   sm: "h-9 w-9 text-sm",
   md: "h-12 w-12 text-base",
   lg: "h-16 w-16 text-lg",
@@ -46,7 +47,7 @@ export function UserAvatar({ name, email, avatarUrl, size = "sm", className }: U
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full border border-[var(--color-border)] bg-brand-100 font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300",
+        "flex items-center justify-center rounded-full bg-teal-600 font-semibold text-white",
         sizeMap[size],
         className,
       )}
