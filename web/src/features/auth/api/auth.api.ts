@@ -46,5 +46,16 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 
+  verifyEmail: (code: string) =>
+    apiFetch<{ user: User; message: string }>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  resendVerification: () =>
+    apiFetch<{ message: string }>("/auth/resend-verification", {
+      method: "POST",
+    }),
+
   googleAuthUrl: () => "/api/auth/google",
 };

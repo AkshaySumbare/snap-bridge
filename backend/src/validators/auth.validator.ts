@@ -35,3 +35,7 @@ export const logoutSchema = z.object({
 export const oauthExchangeSchema = z.object({
   code: z.string().uuid(),
 });
+
+export const verifyEmailSchema = z.object({
+  code: z.string().length(6).regex(/^\d{6}$/, "Code must be 6 digits"),
+});

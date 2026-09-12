@@ -12,6 +12,12 @@ import {
   consumePasswordResetToken,
   type TokenPair,
 } from "./token.service.js";
+import {
+  createAndSendEmailOtp,
+  resendEmailOtp,
+  verifyEmailOtp,
+} from "./verification.service.js";
+import { sendPasswordResetEmail } from "./email.service.js";
 
 const googleClient = config.googleClientId ? new OAuth2Client(config.googleClientId) : null;
 const BCRYPT_ROUNDS = 12;
@@ -32,10 +38,12 @@ export async function findOrCreateGoogleUser(profile: GoogleProfile) {
       name: profile.name,
       googleId: profile.googleId,
       authProvider: "google",
+      isVerified: true,
     });
   } else if (!user.googleId) {
     user.googleId = profile.googleId;
     user.name = user.name ?? profile.name;
+    user.isVerified = true;
     await user.save();
   }
 
@@ -69,7 +77,14 @@ export async function registerLocal(
     passwordHash,
     name: name?.trim(),
     authProvider: "local",
+    isVerified: false,
   });
+
+  try {
+    await createAndSendEmailOtp(user._id.toString(), user.email, user.name ?? null);
+  } catch (err) {
+    console.error("[auth] Failed to send verification email:", err);
+  }
 
   return buildAuthResult(user);
 }
@@ -142,7 +157,45 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
   }
 
   const resetToken = await createPasswordResetToken(user._id.toString());
+  const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
+
+  try {
+    await sendPasswordResetEmail(user.email, resetUrl);
+  } catch (err) {
+    console.error("[auth] Failed to send password reset email:", err);
+  }
+
   return config.isDev ? { resetToken } : {};
+}
+
+export async function verifyEmail(userId: string, code: string) {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError(404, "User not found");
+  }
+
+  if (user.isVerified) {
+    return toPublicUser(user);
+  }
+
+  await verifyEmailOtp(userId, code);
+  user.isVerified = true;
+  await user.save();
+
+  return toPublicUser(user);
+}
+
+export async function resendVerificationEmail(userId: string) {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError(404, "User not found");
+  }
+
+  if (user.isVerified) {
+    throw new AppError(400, "Email is already verified");
+  }
+
+  await resendEmailOtp(userId, user.email, user.name ?? null);
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

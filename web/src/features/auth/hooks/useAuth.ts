@@ -7,7 +7,16 @@ import type {
   LoginPayload,
   RegisterPayload,
   ResetPasswordPayload,
+  VerifyEmailPayload,
 } from "@/features/auth/types/auth.types";
+
+function redirectAfterAuth(user: { isVerified: boolean }, navigate: ReturnType<typeof useNavigate>) {
+  if (!user.isVerified) {
+    navigate("/verify-email", { replace: true });
+  } else {
+    navigate("/dashboard", { replace: true });
+  }
+}
 
 export function useSession() {
   const setUser = useAuthStore((s) => s.setUser);
@@ -39,7 +48,7 @@ export function useLogin() {
     onSuccess: (data) => {
       setUser(data.user);
       queryClient.setQueryData(["auth", "session"], data.user);
-      navigate("/dashboard", { replace: true });
+      redirectAfterAuth(data.user, navigate);
     },
   });
 }
@@ -54,8 +63,29 @@ export function useRegister() {
     onSuccess: (data) => {
       setUser(data.user);
       queryClient.setQueryData(["auth", "session"], data.user);
+      redirectAfterAuth(data.user, navigate);
+    },
+  });
+}
+
+export function useVerifyEmail() {
+  const setUser = useAuthStore((s) => s.setUser);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: VerifyEmailPayload) => authApi.verifyEmail(payload.code),
+    onSuccess: (data) => {
+      setUser(data.user);
+      queryClient.setQueryData(["auth", "session"], data.user);
       navigate("/dashboard", { replace: true });
     },
+  });
+}
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: () => authApi.resendVerification(),
   });
 }
 

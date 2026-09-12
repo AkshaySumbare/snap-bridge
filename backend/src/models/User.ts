@@ -8,6 +8,7 @@ export interface IUser {
   name?: string;
   googleId?: string;
   authProvider: AuthProvider;
+  isVerified: boolean;
 }
 
 export interface IUserDocument extends IUser, Document {
@@ -28,6 +29,7 @@ const userSchema = new Schema<IUserDocument>(
     name: { type: String, trim: true },
     googleId: { type: String, unique: true, sparse: true },
     authProvider: { type: String, enum: ["local", "google"], required: true },
+    isVerified: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -41,6 +43,7 @@ export function toPublicUser(user: IUserDocument) {
     email: user.email,
     name: user.name ?? null,
     authProvider: user.authProvider,
+    isVerified: user.isVerified ?? user.authProvider === "google",
     createdAt: user.createdAt,
   };
 }

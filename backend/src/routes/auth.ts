@@ -9,6 +9,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   oauthExchangeSchema,
+  verifyEmailSchema,
 } from "../validators/auth.validator.js";
 import * as authService from "../services/auth.service.js";
 import * as googleOAuthService from "../services/google-oauth.service.js";
@@ -246,6 +247,34 @@ router.get(
     const { auth } = req as AuthedRequest;
     const user = await authService.getUserById(auth.userId);
     res.json({ user });
+  }),
+);
+
+router.post(
+  "/verify-email",
+  requireAuth,
+  authRateLimiter,
+  asyncHandler(async (req, res) => {
+    const parsed = verifyEmailSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const { auth } = req as AuthedRequest;
+    const user = await authService.verifyEmail(auth.userId, parsed.data.code);
+    res.json({ user, message: "Email verified successfully" });
+  }),
+);
+
+router.post(
+  "/resend-verification",
+  requireAuth,
+  authRateLimiter,
+  asyncHandler(async (req, res) => {
+    const { auth } = req as AuthedRequest;
+    await authService.resendVerificationEmail(auth.userId);
+    res.json({ message: "Verification code sent to your email" });
   }),
 );
 

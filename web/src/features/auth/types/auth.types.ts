@@ -3,7 +3,12 @@ export interface User {
   email: string;
   name: string | null;
   authProvider: "local" | "google";
+  isVerified: boolean;
   createdAt: string;
+}
+
+export interface VerifyEmailPayload {
+  code: string;
 }
 
 export interface AuthResponse {
