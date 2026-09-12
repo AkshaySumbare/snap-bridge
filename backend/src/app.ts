@@ -4,8 +4,10 @@ import cookieParser from "cookie-parser";
 import { config } from "./config.js";
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profile.js";
+import vaultRoutes from "./routes/vault.js";
 import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { requestLogger } from "./middleware/requestLogger.js";
 
 export function createApp() {
   const app = express();
@@ -18,6 +20,7 @@ export function createApp() {
   );
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
+  app.use(requestLogger);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "snapbridge-api" });
@@ -30,6 +33,7 @@ export function createApp() {
   app.use(apiRateLimiter);
 
   app.use("/api/profile", profileRoutes);
+  app.use("/api/vault", vaultRoutes);
 
   app.use(errorHandler);
 

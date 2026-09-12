@@ -45,12 +45,12 @@ API: http://localhost:4000
 
 See [backend/docs/auth-api.md](backend/docs/auth-api.md) for all endpoints.
 
-## Phase 1 progress
+## Progress
 
-- [x] Auth (signup / login / JWT / refresh tokens)
-- [x] Google OAuth redirect flow
-- [x] Forgot / reset password
-- [x] Redis rate limiting
-- [ ] Device pairing, clips, screenshots (next)
+- [x] Auth (signup / login / cookies / Google OAuth / email verification)
+- [x] Profile avatars (Cloudinary signed upload)
+- [x] **Phase 2 backend — Vault + Semantic Search** (see [backend/docs/vault-api.md](backend/docs/vault-api.md))
+- [ ] Vault frontend UI
+- [ ] Device pairing, clipboard sync (deferred)
 
-See [docs/snapbridge-product-roadmap.md](docs/snapbridge-product-roadmap.md) for full scope.
+See [docs/snapbridge-product-roadmap.md](docs/snapbridge-product-roadmap.md) and [docs/snapbridge-product-roadmap.docx](docs/snapbridge-product-roadmap.docx) for full scope.

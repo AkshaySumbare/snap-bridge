@@ -5,6 +5,8 @@ import { connectRedis, disconnectRedis } from "./db/redis.js";
 import { initRateLimiters } from "./middleware/rateLimit.js";
 import { createApp } from "./app.js";
 import { initCloudinary } from "./config/cloudinary.js";
+import { startDocumentWorker, stopDocumentWorker } from "./workers/document.worker.js";
+import { closeDocumentQueue } from "./queues/document.queue.js";
 
 async function startServer() {
   validateConfig();
@@ -12,6 +14,7 @@ async function startServer() {
   await connectMongo();
   await connectRedis();
   await initRateLimiters();
+  startDocumentWorker();
 
   const app = createApp();
   const httpServer = http.createServer(app);
@@ -23,6 +26,8 @@ async function startServer() {
   const shutdown = async () => {
     console.log("Shutting down...");
     httpServer.close();
+    await stopDocumentWorker();
+    await closeDocumentQueue();
     await disconnectRedis();
     await disconnectMongo();
     console.log("Server shutdown complete");

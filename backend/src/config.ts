@@ -39,6 +39,19 @@ export const config = {
   rateLimitAuthLimit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10),
   rateLimitApiWindowMs: Number(process.env.RATE_LIMIT_API_WINDOW_MS ?? 15 * 60 * 1000),
   rateLimitApiLimit: Number(process.env.RATE_LIMIT_API_MAX ?? 100),
+
+  // Vault + semantic search (Phase 2)
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+  embeddingModel: process.env.EMBEDDING_MODEL ?? "text-embedding-3-small",
+  embeddingDimensions: Number(process.env.EMBEDDING_DIMENSIONS ?? 1536),
+  chatModel: process.env.CHAT_MODEL ?? "gpt-4o-mini",
+  vaultChunkSize: Number(process.env.VAULT_CHUNK_SIZE ?? 800),
+  vaultChunkOverlap: Number(process.env.VAULT_CHUNK_OVERLAP ?? 100),
+  vaultMaxFileBytes: Number(process.env.VAULT_MAX_FILE_BYTES ?? 10 * 1024 * 1024),
+  vaultOcrEnabled: process.env.VAULT_OCR_ENABLED !== "false",
+  vectorSearchIndexName: process.env.VECTOR_SEARCH_INDEX_NAME ?? "chunk_embedding_index",
+  vectorSearchNumCandidates: Number(process.env.VECTOR_SEARCH_NUM_CANDIDATES ?? 100),
+  vectorSearchLimit: Number(process.env.VECTOR_SEARCH_LIMIT ?? 8),
 };
 
 export function validateConfig(): void {

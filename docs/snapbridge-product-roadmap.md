@@ -2,7 +2,7 @@
 
 | Document | Version | Date |
 |----------|---------|------|
-| Product Roadmap | 2.0 | September 2026 |
+| Product Roadmap | 2.1 | September 2026 |
 
 ---
 
@@ -14,7 +14,7 @@ SnapBridge is a **Personal Capture & Knowledge OS**. Users capture text, screens
 
 **Platforms:** Web dashboard (now), React Native mobile (later), Desktop (later)
 
-**Stack:** Node.js, MongoDB, Redis, Cloudinary (files), Vector DB (Phase 3+), OCR + RAG (Phase 3+)
+**Stack:** Node.js, MongoDB Atlas (metadata + vector search), Redis, BullMQ, Cloudinary, OpenAI embeddings
 
 ---
 
@@ -64,80 +64,87 @@ SnapBridge is a **Personal Capture & Knowledge OS**. Users capture text, screens
 
 ---
 
-## Phase 2 — Vault & Document Storage
+## Phase 2 — Vault + Semantic Search (CURRENT)
 
-**Goal:** Expand beyond text clips. Store screenshots and documents. Make everything searchable by text.
+**Goal:** Manual upload vault with background processing, vector embeddings, and natural-language Q&A across all documents.
 
-**Timeline:** Weeks 7–10
+**Timeline:** Weeks 7–12  
+**Status:** Backend in progress 🔨
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **Screenshot Vault** | Import screenshots from device (permission-based). Organized library, not scattered gallery |
-| 2 | **Document Vault** | Manual upload: PDF, DOCX, images, audio, video. Available on all paired devices |
-| 3 | **OCR Search** | Extract text from screenshots and image-only PDFs. Full-text keyword search |
-| 4 | **Smart Folders** | Auto-sort uploads into categories: Bills, Work, Study, Career, Legal, Personal, Other |
-| 5 | **Manual Folders** | User-created folders and subfolders. Move, rename, delete |
-| 6 | **Tags** | Manual tags on any item. Filter vault by tag |
-| 7 | **Bulk Actions** | Select multiple items → move folder, delete, export ZIP |
+| 1 | **Document Vault** | Manual upload: PDF, DOCX, images, screenshots via signed Cloudinary upload |
+| 2 | **Text Extraction** | PDF parse, DOCX parse, OCR for images (async worker) |
+| 3 | **Chunking + Embeddings** | Split text into chunks → OpenAI embeddings → MongoDB Atlas Vector Search |
+| 4 | **Semantic Ask** | User asks random natural-language questions → vector search → optional AI answer with citations |
+| 5 | **Smart Folders** | Auto-classify uploads: Bills, Work, Study, Career, Legal, Personal, Inbox |
+| 6 | **Manual Folders** | User-created folders. Move documents between folders |
+| 7 | **Screenshot Vault** | Same pipeline; `sourceType: screenshot` for image uploads |
+| 8 | **Keyword Fallback** | MongoDB text index on `extractedText` when vector score is low |
 
 ### Infrastructure (Phase 2)
 
 | Area | What to build |
 |------|---------------|
-| Blob storage | Cloudinary for images/PDFs (already integrated for avatars) |
-| OCR worker | Async job queue — process uploads in background |
-| Metadata model | Documents, folders, tags, capture types in MongoDB |
-| Mobile share | Share sheet → send file/screenshot to SnapBridge (no external API) |
+| Blob storage | Cloudinary `snapbridge/vault/{userId}/` |
+| Job queue | BullMQ + Redis (ioredis) — `document-process` queue |
+| Vector search | **MongoDB Atlas Vector Search** on `document_chunks.embedding` (no Pinecone) |
+| Embeddings | OpenAI `text-embedding-3-small` (1536 dimensions) |
+| RAG (light) | Retrieve top chunks → optional `gpt-4o-mini` answer |
+| Models | `documents`, `document_chunks`, `folders` in MongoDB |
+
+### Phase 2 Processing Flow
+
+```
+Upload → Cloudinary → confirm → BullMQ job
+  → extract text → chunk → embed → save chunks
+  → classify folder → status: ready
+
+Ask → embed query → $vectorSearch → return chunks (+ optional LLM answer)
+```
 
 ### Phase 2 Success Criteria
 
-- [ ] Upload PDF on web → visible on mobile within 1 minute
-- [ ] Screenshot OCR search returns correct item for stored text
-- [ ] Auto folder assigns correct category for 80%+ of test uploads
-- [ ] User can create custom folders and move items
+- [ ] Upload PDF → processed and searchable within 2 minutes
+- [ ] "Find my AWS interview notes" returns relevant chunks via semantic search
+- [ ] Ask endpoint returns source document links
+- [ ] Smart folder assigns category on upload
+- [ ] Atlas vector index configured and working
 
 ### Out of Scope (Phase 2)
 
-- Semantic/AI search, PDF chat, smart flows
+- Device sync, clipboard (Phase 1 — deferred)
+- Multi-step smart flows, mock interview
+- Graph DB, Pinecone, email integrations
 
 ---
 
-## Phase 3 — Universal Search & Intelligence
+## Phase 3 — Projects & Advanced Intelligence
 
-**Goal:** One search bar across all content. AI-powered Q&A with source citations.
+**Goal:** Organize vault into projects, scoped Q&A, and richer search UX.
 
-**Timeline:** Weeks 11–16
+**Timeline:** Weeks 13–18
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **Universal Search** | Single search bar across clips, screenshots, and documents. Keyword + semantic hybrid |
-| 2 | **Projects** | Workspaces per topic (e.g. "AWS Project", "Interview Prep"). Link related docs together |
-| 3 | **PDF Chat** | Ask questions about a PDF. Answers with page citations |
-| 4 | **Folder Q&A** | Ask questions scoped to a folder or project: "Summarize everything in this project" |
-| 5 | **Entity Extraction** | Auto-detect people, dates, amounts, companies from uploaded content |
-| 6 | **Duplicate Detection** | Flag similar screenshots and documents. Suggest merge or delete |
-| 7 | **Timeline View** | Browse all captures and uploads chronologically |
-| 8 | **Saved Searches** | Save frequent queries: "pending tasks", "unpaid bills", "interview notes" |
-
-### Infrastructure (Phase 3)
-
-| Area | What to build |
-|------|---------------|
-| Vector DB | Qdrant or Pinecone for embeddings |
-| Chunking pipeline | Split PDFs/docs into chunks, embed, index |
-| RAG service | Retrieve relevant chunks → LLM answer with citations |
-| Hybrid search | Keyword (OCR/text) + vector rerank |
+| 1 | **Projects** | Workspaces per topic — link related docs (MongoDB refs, no graph DB) |
+| 2 | **Folder Q&A** | Ask scoped to folder or project |
+| 3 | **PDF Chat UI** | Chat panel per document with page citations |
+| 4 | **Entity Extraction** | Auto-detect people, dates, amounts, companies |
+| 5 | **Duplicate Detection** | Flag similar documents |
+| 6 | **Timeline View** | Browse uploads chronologically |
+| 7 | **Saved Searches** | Save frequent queries |
+| 8 | **Hybrid Search UI** | Universal search bar across vault + future clips |
 
 ### Phase 3 Success Criteria
 
-- [ ] "Summarize my AWS project" returns accurate answer with doc links
-- [ ] PDF chat cites correct page numbers
-- [ ] Universal search finds items across clips, screenshots, and PDFs
-- [ ] Project workspace groups related items correctly
+- [ ] Project workspace groups related items
+- [ ] Folder-scoped ask returns only relevant project docs
+- [ ] PDF chat cites correct page numbers in UI
 
 ### Out of Scope (Phase 3)
 
-- Multi-step agent flows, task scheduling, mock interviews
+- Multi-step agent flows, custom flows, knowledge graph UI
 
 ---
 
@@ -218,8 +225,8 @@ User trigger → Find relevant docs (search vault)
 | Phase | Theme | Key Features |
 |-------|-------|--------------|
 | **1** | Capture Sync | Auth, Device Pairing, Clipboard Sync, Capture History |
-| **2** | Vault & Storage | Screenshot Vault, Document Vault, OCR Search, Smart Folders, Tags |
-| **3** | Search & AI | Universal Search, Projects, PDF Chat, Folder Q&A, Entity Extraction |
+| **2** | Vault + Semantic Search | Document Vault, embeddings, Semantic Ask, Smart Folders, OCR |
+| **3** | Projects & Intelligence | Projects, Folder Q&A, PDF Chat UI, Entity Extraction, Timeline |
 | **4** | Smart Flows | Interview Prep, Study Planner, Compare Docs, Finance Insights, Tasks |
 | **5** | Advanced | Knowledge Graph, Mock Interview, Insights, Custom Flows, Desktop App |
 
@@ -272,10 +279,10 @@ User trigger → Find relevant docs (search vault)
 | Phase | Status |
 |-------|--------|
 | Phase 1 — Auth | ✅ Complete |
-| Phase 1 — Device Pairing | 🔲 Not started |
-| Phase 1 — Clipboard Sync | 🔲 Not started |
-| Phase 1 — Capture History | 🔲 Not started |
-| Phase 2–5 | 🔲 Planned |
+| Phase 1 — Device Pairing | 🔲 Deferred |
+| Phase 1 — Clipboard Sync | 🔲 Deferred |
+| Phase 2 — Vault + Semantic Search | 🔨 Backend in progress |
+| Phase 3–5 | 🔲 Planned |
 
 ---
 
