@@ -4,7 +4,6 @@ import type {
   ForgotPasswordPayload,
   ForgotPasswordResponse,
   LoginPayload,
-  OAuthExchangePayload,
   RegisterPayload,
   ResetPasswordPayload,
   User,
@@ -25,10 +24,9 @@ export const authApi = {
 
   me: () => apiFetch<{ user: User }>("/auth/me"),
 
-  logout: (refreshToken: string) =>
+  logout: () =>
     apiFetch<{ message: string }>("/auth/logout", {
       method: "POST",
-      body: JSON.stringify({ refreshToken }),
     }),
 
   logoutAll: () =>
@@ -44,12 +42,6 @@ export const authApi = {
 
   resetPassword: (payload: ResetPasswordPayload) =>
     apiFetch<{ message: string }>("/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-
-  exchangeOAuthCode: (payload: OAuthExchangePayload) =>
-    apiFetch<AuthResponse>("/auth/oauth/exchange", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

@@ -38,7 +38,7 @@ export async function getGoogleRedirectUrl(): Promise<string> {
   });
 }
 
-export async function handleGoogleCallback(code: string, state: string): Promise<string> {
+export async function completeGoogleCallback(code: string, state: string): Promise<AuthResult> {
   const redis = getRedis();
   const stateKey = `${OAUTH_STATE_PREFIX}${state}`;
   const stateValid = await redis.get(stateKey);
@@ -73,20 +73,11 @@ export async function handleGoogleCallback(code: string, state: string): Promise
   });
 
   const tokenPair = await issueTokenPair(user._id.toString(), user.email);
-  const exchangeCode = randomUUID();
 
-  const exchangePayload: AuthResult = {
+  return {
     user: toPublicUser(user),
     tokens: tokenPair,
   };
-
-  await redis.setEx(
-    `${OAUTH_EXCHANGE_PREFIX}${exchangeCode}`,
-    EXCHANGE_TTL_SECONDS,
-    JSON.stringify(exchangePayload),
-  );
-
-  return exchangeCode;
 }
 
 export async function exchangeOAuthCode(code: string): Promise<AuthResult> {
@@ -110,8 +101,7 @@ export function getOAuthSuccessRedirectUrl(exchangeCode: string): string {
 }
 
 export function getOAuthErrorRedirectUrl(error: string): string {
-  const base = config.googleOAuthSuccessRedirect;
-  const url = new URL(base);
+  const url = new URL("/login", config.corsOrigin);
   url.searchParams.set("error", error);
   return url.toString();
 }

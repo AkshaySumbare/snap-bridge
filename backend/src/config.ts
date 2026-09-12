@@ -7,6 +7,9 @@ export const config = {
   isDev: (process.env.NODE_ENV ?? "development") !== "production",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
 
+  cookieSecure: process.env.COOKIE_SECURE === "true",
+  cookieSameSite: (process.env.COOKIE_SAME_SITE ?? "lax") as "lax" | "strict" | "none",
+
   mongodbUri: process.env.MONGODB_URI ?? "",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
 
@@ -18,9 +21,9 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
   googleRedirectUri:
-    process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:4000/api/auth/google/callback",
+    process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:5173/api/auth/google/callback",
   googleOAuthSuccessRedirect:
-    process.env.GOOGLE_OAUTH_SUCCESS_REDIRECT ?? "http://localhost:5173/auth/callback",
+    process.env.GOOGLE_OAUTH_SUCCESS_REDIRECT ?? "http://localhost:5173/dashboard",
 
   passwordResetTtlSeconds: Number(process.env.PASSWORD_RESET_TTL_SECONDS ?? 3600),
 

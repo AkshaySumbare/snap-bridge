@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -10,12 +10,15 @@ import { AuthDivider } from "@/features/auth/components/AuthDivider";
 import { ApiError } from "@/lib/api-client";
 
 export function LoginPage() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useLogin();
 
-  const error =
+  const oauthError = searchParams.get("error");
+  const loginError =
     login.error instanceof ApiError ? login.error.message : login.error?.message;
+  const error = loginError ?? (oauthError ? `Google sign-in failed: ${oauthError}` : null);
 
   return (
     <Card title="Welcome back" description="Sign in to your SnapBridge account">

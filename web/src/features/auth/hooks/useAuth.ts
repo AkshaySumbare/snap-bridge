@@ -5,66 +5,70 @@ import { useAuthStore } from "@/stores/auth.store";
 import type {
   ForgotPasswordPayload,
   LoginPayload,
-  OAuthExchangePayload,
   RegisterPayload,
   ResetPasswordPayload,
 } from "@/features/auth/types/auth.types";
 
-export function useMe() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+export function useSession() {
+  const setUser = useAuthStore((s) => s.setUser);
 
   return useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: () => authApi.me(),
-    enabled: isAuthenticated,
-    select: (data) => data.user,
+    queryKey: ["auth", "session"],
+    queryFn: async () => {
+      const data = await authApi.me();
+      setUser(data.user);
+      return data.user;
+    },
+    retry: false,
+    staleTime: 5 * 60_000,
   });
 }
 
+export function useMe() {
+  const { data: user, ...rest } = useSession();
+  return { data: user, ...rest };
+}
+
 export function useLogin() {
-  const setSession = useAuthStore((s) => s.setSession);
+  const setUser = useAuthStore((s) => s.setUser);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => authApi.login(payload),
     onSuccess: (data) => {
-      setSession(data);
-      queryClient.setQueryData(["auth", "me"], { user: data.user });
+      setUser(data.user);
+      queryClient.setQueryData(["auth", "session"], data.user);
       navigate("/dashboard", { replace: true });
     },
   });
 }
 
 export function useRegister() {
-  const setSession = useAuthStore((s) => s.setSession);
+  const setUser = useAuthStore((s) => s.setUser);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: RegisterPayload) => authApi.register(payload),
     onSuccess: (data) => {
-      setSession(data);
-      queryClient.setQueryData(["auth", "me"], { user: data.user });
+      setUser(data.user);
+      queryClient.setQueryData(["auth", "session"], data.user);
       navigate("/dashboard", { replace: true });
     },
   });
 }
 
 export function useLogout() {
-  const { refreshToken, clearSession } = useAuthStore();
+  const clearUser = useAuthStore((s) => s.clearUser);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      if (refreshToken) {
-        await authApi.logout(refreshToken).catch(() => undefined);
-      }
-    },
+    mutationFn: () => authApi.logout(),
     onSettled: () => {
-      clearSession();
-      queryClient.clear();
+      clearUser();
+      queryClient.removeQueries({ queryKey: ["auth"] });
       navigate("/login", { replace: true });
     },
   });
@@ -83,21 +87,6 @@ export function useResetPassword() {
     mutationFn: (payload: ResetPasswordPayload) => authApi.resetPassword(payload),
     onSuccess: () => {
       navigate("/login", { replace: true });
-    },
-  });
-}
-
-export function useOAuthExchange() {
-  const setSession = useAuthStore((s) => s.setSession);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: OAuthExchangePayload) => authApi.exchangeOAuthCode(payload),
-    onSuccess: (data) => {
-      setSession(data);
-      queryClient.setQueryData(["auth", "me"], { user: data.user });
-      navigate("/dashboard", { replace: true });
     },
   });
 }

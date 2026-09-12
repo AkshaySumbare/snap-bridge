@@ -1,5 +1,4 @@
 import { useAuthStore } from "@/stores/auth.store";
-import type { AuthResponse } from "@/features/auth/types/auth.types";
 
 const API_BASE = "/api";
 
@@ -41,27 +40,22 @@ async function parseError(res: Response): Promise<string> {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-async function refreshTokens(): Promise<boolean> {
-  const { refreshToken, setSession, clearSession } = useAuthStore.getState();
-  if (!refreshToken) return false;
-
+async function refreshSession(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
     });
 
     if (!res.ok) {
-      clearSession();
+      useAuthStore.getState().clearUser();
       return false;
     }
 
-    const data = (await res.json()) as AuthResponse;
-    setSession(data);
     return true;
   } catch {
-    clearSession();
+    useAuthStore.getState().clearUser();
     return false;
   }
 }
@@ -71,22 +65,21 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  const { accessToken } = useAuthStore.getState();
   const headers = new Headers(options.headers);
 
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }
 
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-
-  if (res.status === 401 && retry && accessToken) {
+  if (res.status === 401 && retry && path !== "/auth/refresh") {
     if (!refreshPromise) {
-      refreshPromise = refreshTokens().finally(() => {
+      refreshPromise = refreshSession().finally(() => {
         refreshPromise = null;
       });
     }

@@ -1,18 +1,16 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuthStore } from "@/stores/auth.store";
 import { PageLoader } from "@/components/ui/Loader";
-import { useStoreHydration } from "@/hooks/useStoreHydration";
+import { useSession } from "@/features/auth/hooks/useAuth";
 
 export function ProtectedRoute() {
   const location = useLocation();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
-  const hasHydrated = useStoreHydration(useAuthStore);
+  const { data: user, isPending, isError } = useSession();
 
-  if (!hasHydrated) {
+  if (isPending) {
     return <PageLoader label="Loading session..." />;
   }
 
-  if (!isAuthenticated) {
+  if (isError || !user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 

@@ -7,7 +7,6 @@ import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { RegisterPage } from "@/features/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "@/features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/pages/ResetPasswordPage";
-import { OAuthCallbackPage } from "@/features/auth/pages/OAuthCallbackPage";
 import { DashboardPage } from "@/features/auth/pages/DashboardPage";
 
 export const router = createBrowserRouter([
@@ -28,11 +27,6 @@ export const router = createBrowserRouter([
         ],
       },
     ],
-  },
-  {
-    path: "/auth/callback",
-    element: <AuthLayout />,
-    children: [{ index: true, element: <OAuthCallbackPage /> }],
   },
   {
     element: <ProtectedRoute />,

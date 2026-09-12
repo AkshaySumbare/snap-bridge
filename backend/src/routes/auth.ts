@@ -6,27 +6,35 @@ import {
   registerSchema,
   loginSchema,
   googleLoginSchema,
-  refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-  logoutSchema,
   oauthExchangeSchema,
 } from "../validators/auth.validator.js";
 import * as authService from "../services/auth.service.js";
 import * as googleOAuthService from "../services/google-oauth.service.js";
 import { config } from "../config.js";
 import { AppError } from "../utils/errors.js";
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  getRefreshTokenFromRequest,
+} from "../utils/cookies.js";
 
 const router = Router();
 
-function formatAuthResponse(result: Awaited<ReturnType<typeof authService.loginLocal>>) {
-  return {
+function sendWebAuth(res: Parameters<typeof setAuthCookies>[0], result: Awaited<ReturnType<typeof authService.loginLocal>>, status = 200) {
+  setAuthCookies(res, result.tokens);
+  res.status(status).json({ user: result.user });
+}
+
+function sendMobileAuth(res: Parameters<typeof setAuthCookies>[0], result: Awaited<ReturnType<typeof authService.loginLocal>>) {
+  res.json({
     user: result.user,
     accessToken: result.tokens.accessToken,
     refreshToken: result.tokens.refreshToken,
     expiresIn: result.tokens.expiresIn,
-    token: result.tokens.accessToken, // backward compat for existing web client
-  };
+    token: result.tokens.accessToken,
+  });
 }
 
 router.post(
@@ -44,11 +52,10 @@ router.post(
       parsed.data.password,
       parsed.data.name,
     );
-    res.status(201).json(formatAuthResponse(result));
+    sendWebAuth(res, result, 201);
   }),
 );
 
-// Kept for backward compatibility with web client
 router.post(
   "/signup",
   authRateLimiter,
@@ -64,7 +71,7 @@ router.post(
       parsed.data.password,
       parsed.data.name,
     );
-    res.status(201).json(formatAuthResponse(result));
+    sendWebAuth(res, result, 201);
   }),
 );
 
@@ -79,11 +86,10 @@ router.post(
     }
 
     const result = await authService.loginLocal(parsed.data.email, parsed.data.password);
-    res.json(formatAuthResponse(result));
+    sendWebAuth(res, result);
   }),
 );
 
-// Server-side OAuth redirect flow (web)
 router.get(
   "/google",
   authRateLimiter,
@@ -112,8 +118,9 @@ router.get(
     }
 
     try {
-      const exchangeCode = await googleOAuthService.handleGoogleCallback(code, state);
-      res.redirect(googleOAuthService.getOAuthSuccessRedirectUrl(exchangeCode));
+      const result = await googleOAuthService.completeGoogleCallback(code, state);
+      setAuthCookies(res, result.tokens);
+      res.redirect(config.googleOAuthSuccessRedirect);
     } catch (err) {
       const message = err instanceof AppError ? err.message : "oauth_failed";
       res.redirect(googleOAuthService.getOAuthErrorRedirectUrl(message));
@@ -132,11 +139,10 @@ router.post(
     }
 
     const result = await googleOAuthService.exchangeOAuthCode(parsed.data.code);
-    res.json(formatAuthResponse(result));
+    sendWebAuth(res, result);
   }),
 );
 
-// Mobile / client-side Google Sign-In (idToken)
 router.post(
   "/google/token",
   authRateLimiter,
@@ -148,7 +154,7 @@ router.post(
     }
 
     const result = await authService.loginWithGoogle(parsed.data.idToken);
-    res.json(formatAuthResponse(result));
+    sendMobileAuth(res, result);
   }),
 );
 
@@ -156,14 +162,15 @@ router.post(
   "/refresh",
   authRateLimiter,
   asyncHandler(async (req, res) => {
-    const parsed = refreshSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten() });
+    const refreshToken = getRefreshTokenFromRequest(req);
+
+    if (!refreshToken) {
+      res.status(401).json({ error: "Refresh token required" });
       return;
     }
 
-    const result = await authService.refreshSession(parsed.data.refreshToken);
-    res.json(formatAuthResponse(result));
+    const result = await authService.refreshSession(refreshToken);
+    sendWebAuth(res, result);
   }),
 );
 
@@ -171,13 +178,13 @@ router.post(
   "/logout",
   authRateLimiter,
   asyncHandler(async (req, res) => {
-    const parsed = logoutSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten() });
-      return;
+    const refreshToken = getRefreshTokenFromRequest(req);
+
+    if (refreshToken) {
+      await authService.logout(refreshToken);
     }
 
-    await authService.logout(parsed.data.refreshToken);
+    clearAuthCookies(res);
     res.json({ message: "Logged out successfully" });
   }),
 );
@@ -188,6 +195,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { auth } = req as AuthedRequest;
     await authService.logoutAll(auth.userId);
+    clearAuthCookies(res);
     res.json({ message: "Logged out from all devices" });
   }),
 );
@@ -226,6 +234,7 @@ router.post(
     }
 
     await authService.resetPassword(parsed.data.token, parsed.data.password);
+    clearAuthCookies(res);
     res.json({ message: "Password reset successful. Please log in again." });
   }),
 );

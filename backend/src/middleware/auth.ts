@@ -1,19 +1,20 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, type AccessTokenPayload } from "../services/token.service.js";
+import { getAccessTokenFromRequest } from "../utils/cookies.js";
 
 export interface AuthedRequest extends Request {
   auth: AccessTokenPayload;
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Missing or invalid authorization header" });
+  const token = getAccessTokenFromRequest(req);
+
+  if (!token) {
+    res.status(401).json({ error: "Authentication required" });
     return;
   }
 
   try {
-    const token = header.slice(7);
     const payload = verifyAccessToken(token);
     (req as AuthedRequest).auth = payload;
     next();
