@@ -1,13 +1,11 @@
 import express from "express";
 import cors from "cors";
-import type { Server as SocketServer } from "socket.io";
 import { config } from "./config.js";
 import authRoutes from "./routes/auth.js";
-import deviceRoutes from "./routes/devices.js";
-import screenshotRoutes from "./routes/screenshots.js";
-import { createClipsRouter } from "./routes/clips.js";
+import { apiRateLimiter } from "./middleware/rateLimit.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
-export function createApp(io: SocketServer) {
+export function createApp() {
   const app = express();
 
   app.use(cors({ origin: config.corsOrigin }));
@@ -17,10 +15,17 @@ export function createApp(io: SocketServer) {
     res.json({ status: "ok", service: "snapbridge-api" });
   });
 
+  // Auth has its own stricter rate limiter inside auth routes
   app.use("/api/auth", authRoutes);
-  app.use("/api/devices", deviceRoutes);
-  app.use("/api/clips", createClipsRouter(io));
-  app.use("/api/screenshots", screenshotRoutes);
+
+  // General rate limiter for all future non-auth API routes
+  app.use(apiRateLimiter);
+
+  // Future routes go here, e.g.:
+  // app.use("/api/devices", deviceRoutes);
+  // app.use("/api/clips", clipRoutes);
+
+  app.use(errorHandler);
 
   return app;
 }

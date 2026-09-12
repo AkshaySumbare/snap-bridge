@@ -1,18 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { config } from "../config.js";
-
-export interface AuthPayload {
-  userId: string;
-  email: string;
-}
+import { verifyAccessToken, type AccessTokenPayload } from "../services/token.service.js";
 
 export interface AuthedRequest extends Request {
-  auth: AuthPayload;
-}
-
-export function signToken(payload: AuthPayload): string {
-  return jwt.sign(payload, config.jwtSecret, { expiresIn: "7d" });
+  auth: AccessTokenPayload;
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -24,10 +14,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
   try {
     const token = header.slice(7);
-    const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
+    const payload = verifyAccessToken(token);
     (req as AuthedRequest).auth = payload;
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid or expired token";
+    res.status(401).json({ error: message });
   }
 }
