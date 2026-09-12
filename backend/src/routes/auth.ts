@@ -211,16 +211,10 @@ router.post(
       return;
     }
 
-    const { resetToken } = await authService.forgotPassword(parsed.data.email);
-    const response: Record<string, string> = {
+    await authService.forgotPassword(parsed.data.email);
+    res.json({
       message: "If an account with that email exists, password reset instructions have been sent.",
-    };
-
-    if (config.isDev && resetToken) {
-      response.resetToken = resetToken;
-    }
-
-    res.json(response);
+    });
   }),
 );
 

@@ -147,13 +147,13 @@ export async function logoutAll(userId: string): Promise<void> {
   await revokeAllUserTokens(userId);
 }
 
-export async function forgotPassword(email: string): Promise<{ resetToken?: string }> {
+export async function forgotPassword(email: string): Promise<void> {
   const normalizedEmail = email.toLowerCase().trim();
   const user = await User.findOne({ email: normalizedEmail });
 
   // Always return success to avoid email enumeration
   if (!user || !user.passwordHash) {
-    return {};
+    return;
   }
 
   const resetToken = await createPasswordResetToken(user._id.toString());
@@ -164,8 +164,6 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
   } catch (err) {
     console.error("[auth] Failed to send password reset email:", err);
   }
-
-  return config.isDev ? { resetToken } : {};
 }
 
 export async function verifyEmail(userId: string, code: string) {

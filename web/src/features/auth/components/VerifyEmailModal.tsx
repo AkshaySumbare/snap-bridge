@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { Mail } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
+import { OtpInput } from "@/components/ui/OtpInput";
 import { useResendVerification, useVerifyEmail } from "@/features/auth/hooks/useAuth";
 import { useAuthStore } from "@/stores/auth.store";
+import { useCountdown } from "@/hooks/useCountdown";
 import { ApiError } from "@/lib/api-client";
+
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export function VerifyEmailModal() {
   const user = useAuthStore((s) => s.user);
   const [code, setCode] = useState("");
   const verifyEmail = useVerifyEmail();
   const resendVerification = useResendVerification();
+  const { remaining, isActive, reset } = useCountdown(RESEND_COOLDOWN_SECONDS);
 
   const verifyError =
     verifyEmail.error instanceof ApiError
@@ -23,6 +27,15 @@ export function VerifyEmailModal() {
     resendVerification.error instanceof ApiError
       ? resendVerification.error.message
       : resendVerification.error?.message;
+
+  function handleResend() {
+    resendVerification.mutate(undefined, {
+      onSuccess: () => {
+        reset(RESEND_COOLDOWN_SECONDS);
+        setCode("");
+      },
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-bg)]/90 px-4 backdrop-blur-sm">
@@ -38,7 +51,7 @@ export function VerifyEmailModal() {
         </div>
 
         <form
-          className="space-y-4"
+          className="space-y-6"
           onSubmit={(e) => {
             e.preventDefault();
             verifyEmail.mutate({ code });
@@ -50,19 +63,17 @@ export function VerifyEmailModal() {
           )}
           {resendError && <Alert variant="error">{resendError}</Alert>}
 
-          <Input
-            label="Verification code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="\d{6}"
-            maxLength={6}
-            placeholder="000000"
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="text-center text-lg tracking-[0.4em]"
-          />
+          <div className="space-y-2">
+            <p className="text-center text-sm font-medium text-[var(--color-text-muted)]">
+              Verification code
+            </p>
+            <OtpInput
+              value={code}
+              onChange={setCode}
+              disabled={verifyEmail.isPending}
+              autoFocus
+            />
+          </div>
 
           <Button
             type="submit"
@@ -80,9 +91,10 @@ export function VerifyEmailModal() {
             variant="ghost"
             size="sm"
             loading={resendVerification.isPending}
-            onClick={() => resendVerification.mutate()}
+            disabled={isActive || resendVerification.isPending}
+            onClick={handleResend}
           >
-            Resend code
+            {isActive ? `Resend code in ${remaining}s` : "Resend code"}
           </Button>
         </div>
       </Card>
