@@ -12,9 +12,11 @@
     "dev:backend": "npm run dev -w backend",
     "dev:web": "npm run dev -w web",
     "build": "npm run build -w backend && npm run build -w web",
-    "lint": "npm run lint -w backend && npm run lint -w web"
+    "lint": "npm run lint -w backend && npm run lint -w web",
+    "docs:roadmap": "node scripts/generate-roadmap-docx.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "docx": "^9.5.0"
   }
 }
