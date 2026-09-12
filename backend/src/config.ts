@@ -31,6 +31,10 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendFromEmail: process.env.RESEND_FROM_EMAIL ?? "SnapBridge <onboarding@resend.dev>",
 
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?? "",
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY ?? "",
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET ?? "",
+
   rateLimitAuthWindowMs: Number(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? 15 * 60 * 1000),
   rateLimitAuthLimit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10),
   rateLimitApiWindowMs: Number(process.env.RATE_LIMIT_API_WINDOW_MS ?? 15 * 60 * 1000),

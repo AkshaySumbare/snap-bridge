@@ -2,6 +2,8 @@ import mongoose, { Schema, type Document, type Model } from "mongoose";
 
 export type AuthProvider = "local" | "google";
 
+export type AvatarSource = "upload" | "google";
+
 export interface IUser {
   email: string;
   passwordHash?: string;
@@ -9,6 +11,9 @@ export interface IUser {
   googleId?: string;
   authProvider: AuthProvider;
   isVerified: boolean;
+  avatarUrl?: string;
+  avatarPublicId?: string;
+  avatarSource?: AvatarSource;
 }
 
 export interface IUserDocument extends IUser, Document {
@@ -30,6 +35,9 @@ const userSchema = new Schema<IUserDocument>(
     googleId: { type: String, unique: true, sparse: true },
     authProvider: { type: String, enum: ["local", "google"], required: true },
     isVerified: { type: Boolean, default: false },
+    avatarUrl: { type: String },
+    avatarPublicId: { type: String },
+    avatarSource: { type: String, enum: ["upload", "google"] },
   },
   { timestamps: true },
 );
@@ -44,6 +52,7 @@ export function toPublicUser(user: IUserDocument) {
     name: user.name ?? null,
     authProvider: user.authProvider,
     isVerified: user.isVerified ?? user.authProvider === "google",
+    avatarUrl: user.avatarUrl ?? null,
     createdAt: user.createdAt,
   };
 }

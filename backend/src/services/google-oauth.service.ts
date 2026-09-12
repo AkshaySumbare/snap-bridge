@@ -70,6 +70,7 @@ export async function completeGoogleCallback(code: string, state: string): Promi
     googleId: payload.sub,
     email: payload.email,
     name: payload.name,
+    picture: payload.picture,
   });
 
   const tokenPair = await issueTokenPair(user._id.toString(), user.email);

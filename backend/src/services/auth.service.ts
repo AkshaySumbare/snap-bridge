@@ -18,6 +18,7 @@ import {
   verifyEmailOtp,
 } from "./verification.service.js";
 import { sendPasswordResetEmail } from "./email.service.js";
+import { syncGoogleAvatarIfNeeded } from "./profile.service.js";
 
 const googleClient = config.googleClientId ? new OAuth2Client(config.googleClientId) : null;
 const BCRYPT_ROUNDS = 12;
@@ -26,6 +27,7 @@ export interface GoogleProfile {
   googleId: string;
   email: string;
   name?: string;
+  picture?: string;
 }
 
 export async function findOrCreateGoogleUser(profile: GoogleProfile) {
@@ -47,6 +49,7 @@ export async function findOrCreateGoogleUser(profile: GoogleProfile) {
     await user.save();
   }
 
+  await syncGoogleAvatarIfNeeded(user, profile.picture);
   return user;
 }
 
@@ -125,6 +128,7 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
     googleId: payload.sub,
     email: payload.email,
     name: payload.name,
+    picture: payload.picture,
   });
 
   return buildAuthResult(user);

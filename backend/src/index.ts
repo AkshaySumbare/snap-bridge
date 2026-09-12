@@ -4,9 +4,11 @@ import { connectMongo, disconnectMongo } from "./db/mongodb.js";
 import { connectRedis, disconnectRedis } from "./db/redis.js";
 import { initRateLimiters } from "./middleware/rateLimit.js";
 import { createApp } from "./app.js";
+import { initCloudinary } from "./config/cloudinary.js";
 
 async function startServer() {
   validateConfig();
+  initCloudinary();
   await connectMongo();
   await connectRedis();
   await initRateLimiters();

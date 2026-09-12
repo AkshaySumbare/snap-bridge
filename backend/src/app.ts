@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { config } from "./config.js";
 import authRoutes from "./routes/auth.js";
+import profileRoutes from "./routes/profile.js";
 import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -28,9 +29,7 @@ export function createApp() {
   // General rate limiter for all future non-auth API routes
   app.use(apiRateLimiter);
 
-  // Future routes go here, e.g.:
-  // app.use("/api/devices", deviceRoutes);
-  // app.use("/api/clips", clipRoutes);
+  app.use("/api/profile", profileRoutes);
 
   app.use(errorHandler);
 

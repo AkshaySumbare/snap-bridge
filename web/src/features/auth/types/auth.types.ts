@@ -4,6 +4,7 @@ export interface User {
   name: string | null;
   authProvider: "local" | "google";
   isVerified: boolean;
+  avatarUrl: string | null;
   createdAt: string;
 }
 
