@@ -99,46 +99,46 @@ async function keywordFallback(
   }));
 }
 
+function buildAnswerMessages(query: string, results: SemanticSearchResult[]) {
+  const context = results
+    .map((r, i) => `[${i + 1}] Document: ${r.documentTitle}\n${r.chunkText}`)
+    .join("\n\n");
+
+  return [
+    {
+      role: "system" as const,
+      content:
+        "You answer questions using only the provided document excerpts. Cite sources as [1], [2], etc. If the context is insufficient, say so clearly.",
+    },
+    {
+      role: "user" as const,
+      content: `Question: ${query}\n\nContext:\n${context}`,
+    },
+  ];
+}
+
 async function generateAnswer(query: string, results: SemanticSearchResult[]): Promise<string | null> {
   if (!config.openaiApiKey || results.length === 0) return null;
 
   const openai = new OpenAI({ apiKey: config.openaiApiKey });
-  const context = results
-    .map(
-      (r, i) =>
-        `[${i + 1}] Document: ${r.documentTitle}\n${r.chunkText}`,
-    )
-    .join("\n\n");
-
   const completion = await openai.chat.completions.create({
     model: config.chatModel,
     temperature: 0.2,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You answer questions using only the provided document excerpts. Cite sources as [1], [2], etc. If the context is insufficient, say so clearly.",
-      },
-      {
-        role: "user",
-        content: `Question: ${query}\n\nContext:\n${context}`,
-      },
-    ],
+    messages: buildAnswerMessages(query, results),
   });
 
   return completion.choices[0]?.message?.content?.trim() ?? null;
 }
 
-export async function askVault(
+export async function searchVault(
   userId: string,
   query: string,
   options?: {
     folderId?: string;
     documentId?: string;
     limit?: number;
-    generateAnswer?: boolean;
   },
-): Promise<AskResponse> {
+): Promise<SemanticSearchResult[]> {
   if (!isEmbeddingConfigured()) {
     throw new AppError(503, "Semantic search requires OPENAI_API_KEY");
   }
@@ -187,6 +187,49 @@ export async function askVault(
   if (results.length === 0) {
     results = await keywordFallback(userId, query, limit);
   }
+
+  return results;
+}
+
+export async function streamAnswer(
+  query: string,
+  results: SemanticSearchResult[],
+  onChunk: (chunk: string) => void,
+  isAborted?: () => boolean,
+): Promise<string | null> {
+  if (!config.openaiApiKey || results.length === 0) return null;
+
+  const openai = new OpenAI({ apiKey: config.openaiApiKey });
+  const stream = await openai.chat.completions.create({
+    model: config.chatModel,
+    temperature: 0.2,
+    messages: buildAnswerMessages(query, results),
+    stream: true,
+  });
+
+  let answer = "";
+  for await (const chunk of stream) {
+    if (isAborted?.()) break;
+    const text = chunk.choices[0]?.delta?.content ?? "";
+    if (!text) continue;
+    answer += text;
+    onChunk(text);
+  }
+
+  return answer.trim() || null;
+}
+
+export async function askVault(
+  userId: string,
+  query: string,
+  options?: {
+    folderId?: string;
+    documentId?: string;
+    limit?: number;
+    generateAnswer?: boolean;
+  },
+): Promise<AskResponse> {
+  const results = await searchVault(userId, query, options);
 
   const answer =
     options?.generateAnswer === true

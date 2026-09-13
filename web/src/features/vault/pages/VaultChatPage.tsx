@@ -8,7 +8,8 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { useAskVault, useFolders } from "../hooks/useVault";
+import { useFolders } from "../hooks/useVault";
+import { vaultApi } from "../api/vault.api";
 import type { ChatMessage, SemanticSearchResult } from "../types/vault.types";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
@@ -39,6 +40,7 @@ function SourceCard({ source, index }: { source: SemanticSearchResult; index: nu
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+  const showSources = message.sources && message.sources.length > 0 && !message.isStreaming;
 
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
@@ -56,13 +58,30 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               : "bg-[var(--color-surface-muted)] text-[var(--color-text)]",
           )}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap">
+            {message.content}
+            {message.isStreaming && (
+              <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-brand-500 align-middle" />
+            )}
+          </p>
         </div>
-        {message.sources && message.sources.length > 0 && (
+        {message.isStreaming && message.sources && message.sources.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-[var(--color-text-muted)]">
+              Sources found — generating answer…
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {message.sources.map((s, i) => (
+                <SourceCard key={`${s.documentId}-${s.chunkIndex}`} source={s} index={i + 1} />
+              ))}
+            </div>
+          </div>
+        )}
+        {showSources && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-[var(--color-text-muted)]">Sources</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {message.sources.map((s, i) => (
+              {message.sources!.map((s, i) => (
                 <SourceCard key={`${s.documentId}-${s.chunkIndex}`} source={s} index={i + 1} />
               ))}
             </div>
@@ -83,22 +102,31 @@ export function VaultChatPage() {
   const [input, setInput] = useState("");
   const [scope, setScope] = useState<"universal" | "folder">("universal");
   const [folderId, setFolderId] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const assistantIdRef = useRef<string | null>(null);
 
   const { data: folders } = useFolders();
-  const ask = useAskVault();
-
-  const error = ask.error instanceof ApiError ? ask.error.message : null;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, ask.isPending]);
+  }, [messages, isStreaming]);
 
-  function handleSubmit(e?: React.FormEvent) {
+  function updateAssistantMessage(updater: (message: ChatMessage) => ChatMessage) {
+    const assistantId = assistantIdRef.current;
+    if (!assistantId) return;
+    setMessages((prev) =>
+      prev.map((message) => (message.id === assistantId ? updater(message) : message)),
+    );
+  }
+
+  async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     const query = input.trim();
-    if (!query || ask.isPending) return;
+    if (!query || isStreaming) return;
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -106,42 +134,96 @@ export function VaultChatPage() {
       content: query,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+    const assistantId = crypto.randomUUID();
+    assistantIdRef.current = assistantId;
 
-    ask.mutate(
-      {
-        query,
-        folderId: scope === "folder" && folderId ? folderId : undefined,
-        generateAnswer: true,
-        limit: 8,
-      },
-      {
-        onSuccess: (data) => {
-          const assistantMsg: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content:
-              data.answer ??
-              (data.results.length > 0
-                ? `Found ${data.results.length} relevant excerpt(s) in your vault.`
-                : "I couldn't find anything relevant in your documents for that question."),
-            sources: data.results,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "Searching your vault…",
+      timestamp: new Date(),
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setInput("");
+    setError(null);
+    setIsStreaming(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      await vaultApi.askStream(
+        {
+          query,
+          folderId: scope === "folder" && folderId ? folderId : undefined,
+          generateAnswer: true,
+          limit: 8,
         },
-        onError: (err) => {
-          const assistantMsg: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
+        {
+          onSources: (results) => {
+            updateAssistantMessage((message) => ({
+              ...message,
+              sources: results,
+              content:
+                results.length > 0
+                  ? ""
+                  : "I couldn't find anything relevant in your documents for that question.",
+            }));
+          },
+          onDelta: (chunk) => {
+            updateAssistantMessage((message) => ({
+              ...message,
+              content: message.content + chunk,
+            }));
+          },
+          onDone: (answer) => {
+            updateAssistantMessage((message) => ({
+              ...message,
+              content:
+                message.content ||
+                answer ||
+                (message.sources && message.sources.length > 0
+                  ? `Found ${message.sources.length} relevant excerpt(s) in your vault.`
+                  : "I couldn't find anything relevant in your documents for that question."),
+              isStreaming: false,
+            }));
+          },
+          onError: (message) => {
+            setError(message);
+            updateAssistantMessage((msg) => ({
+              ...msg,
+              content: message,
+              isStreaming: false,
+            }));
+          },
         },
-      },
-    );
+        controller.signal,
+      );
+
+      updateAssistantMessage((message) => ({
+        ...message,
+        isStreaming: false,
+      }));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+
+      const message =
+        err instanceof ApiError ? err.message : "Something went wrong. Please try again.";
+      setError(message);
+      updateAssistantMessage((msg) => ({
+        ...msg,
+        content: message,
+        isStreaming: false,
+      }));
+    } finally {
+      abortRef.current = null;
+      assistantIdRef.current = null;
+      setIsStreaming(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -155,7 +237,6 @@ export function VaultChatPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      {/* Header / scope */}
       <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -209,7 +290,6 @@ export function VaultChatPage() {
         )}
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           {messages.length === 0 && (
@@ -249,26 +329,10 @@ export function VaultChatPage() {
             <MessageBubble key={msg.id} message={msg} />
           ))}
 
-          {ask.isPending && (
-            <div className="flex gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white">
-                <Bot className="h-4 w-4" />
-              </div>
-              <div className="rounded-2xl bg-[var(--color-surface-muted)] px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500 [animation-delay:-0.3s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500 [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500" />
-                </div>
-              </div>
-            </div>
-          )}
-
           <div ref={bottomRef} />
         </div>
       </div>
 
-      {/* Input */}
       <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4 sm:px-6">
         <form onSubmit={handleSubmit} className="mx-auto max-w-4xl">
           {error && (
@@ -292,7 +356,7 @@ export function VaultChatPage() {
             <Button
               type="submit"
               size="sm"
-              disabled={!input.trim() || ask.isPending || (scope === "folder" && !folderId)}
+              disabled={!input.trim() || isStreaming || (scope === "folder" && !folderId)}
               className="shrink-0 rounded-xl"
             >
               <Send className="h-4 w-4" />

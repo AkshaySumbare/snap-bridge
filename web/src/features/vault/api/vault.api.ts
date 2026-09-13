@@ -2,6 +2,8 @@ import { apiFetch } from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
 import type {
   AskResponse,
+  AskStreamEvent,
+  SemanticSearchResult,
   SignedUploadParams,
   VaultDocument,
   VaultFolder,
@@ -235,6 +237,102 @@ export const vaultApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  async askStream(
+    data: {
+      query: string;
+      folderId?: string;
+      documentId?: string;
+      limit?: number;
+      generateAnswer?: boolean;
+    },
+    callbacks: {
+      onSources?: (results: SemanticSearchResult[], query: string) => void;
+      onDelta?: (content: string) => void;
+      onDone?: (answer: string | null) => void;
+      onError?: (message: string) => void;
+    },
+    signal?: AbortSignal,
+  ) {
+    const res = await fetch("/api/vault/ask/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
+      signal,
+    });
+
+    if (!res.ok) {
+      let message = "Request failed";
+      try {
+        const body = (await res.json()) as { error?: unknown };
+        if (typeof body.error === "string") message = body.error;
+      } catch {
+        message = res.statusText || message;
+      }
+      throw new ApiError(res.status, message);
+    }
+
+    if (!res.body) {
+      throw new ApiError(500, "Streaming response is not supported");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    const handleEvent = (event: AskStreamEvent) => {
+      switch (event.type) {
+        case "sources":
+          callbacks.onSources?.(event.results, event.query);
+          break;
+        case "delta":
+          callbacks.onDelta?.(event.content);
+          break;
+        case "done":
+          callbacks.onDone?.(event.answer);
+          break;
+        case "error":
+          callbacks.onError?.(event.message);
+          break;
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() ?? "";
+
+      for (const block of blocks) {
+        const line = block
+          .split("\n")
+          .find((entry) => entry.startsWith("data: "));
+        if (!line) continue;
+
+        try {
+          handleEvent(JSON.parse(line.slice(6)) as AskStreamEvent);
+        } catch {
+          // Ignore malformed SSE chunks
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      const line = buffer
+        .split("\n")
+        .find((entry) => entry.startsWith("data: "));
+      if (line) {
+        try {
+          handleEvent(JSON.parse(line.slice(6)) as AskStreamEvent);
+        } catch {
+          // Ignore malformed SSE chunks
+        }
+      }
+    }
+  },
 
   getAiConfig: () => apiFetch<{ active: Record<string, unknown>; note: string }>("/vault/ai-config"),
 };

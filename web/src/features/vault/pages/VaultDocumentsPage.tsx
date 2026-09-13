@@ -124,7 +124,7 @@ export function VaultDocumentsPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      loading={retryOne.isPending}
+                      loading={retryOne.isPending && retryOne.variables === doc.id}
                       onClick={() => retryOne.mutate(doc.id)}
                     >
                       <RefreshCw className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function VaultDocumentsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    loading={deleteDoc.isPending}
+                    loading={deleteDoc.isPending && deleteDoc.variables === doc.id}
                     onClick={() => deleteDoc.mutate(doc.id)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />

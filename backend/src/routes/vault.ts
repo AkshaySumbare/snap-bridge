@@ -189,6 +189,76 @@ router.post(
   }),
 );
 
+router.post(
+  "/ask/stream",
+  asyncHandler(async (req, res) => {
+    const parsed = askSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const { auth } = req as AuthedRequest;
+    const generateAnswer = parsed.data.generateAnswer ?? true;
+    let aborted = false;
+    req.on("close", () => {
+      aborted = true;
+    });
+
+    const writeEvent = (payload: Record<string, unknown>) => {
+      if (aborted) return;
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    try {
+      const results = await semanticSearchService.searchVault(auth.userId, parsed.data.query, {
+        folderId: parsed.data.folderId,
+        documentId: parsed.data.documentId,
+        limit: parsed.data.limit,
+      });
+
+      writeEvent({ type: "sources", query: parsed.data.query, results });
+
+      if (aborted) {
+        res.end();
+        return;
+      }
+
+      let answer: string | null = null;
+      if (generateAnswer && results.length > 0) {
+        answer = await semanticSearchService.streamAnswer(
+          parsed.data.query,
+          results,
+          (chunk) => writeEvent({ type: "delta", content: chunk }),
+          () => aborted,
+        );
+      } else if (generateAnswer && results.length === 0) {
+        answer =
+          "I couldn't find anything relevant in your documents for that question.";
+        writeEvent({ type: "delta", content: answer });
+      }
+
+      writeEvent({ type: "done", answer });
+      res.end();
+    } catch (err) {
+      if (aborted) {
+        res.end();
+        return;
+      }
+
+      const message =
+        err instanceof Error ? err.message : "Failed to generate answer";
+      writeEvent({ type: "error", message });
+      res.end();
+    }
+  }),
+);
+
 router.get(
   "/folders",
   asyncHandler(async (req, res) => {

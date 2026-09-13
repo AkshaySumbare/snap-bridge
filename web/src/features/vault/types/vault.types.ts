@@ -65,7 +65,14 @@ export interface ChatMessage {
   content: string;
   sources?: SemanticSearchResult[];
   timestamp: Date;
+  isStreaming?: boolean;
 }
+
+export type AskStreamEvent =
+  | { type: "sources"; query: string; results: SemanticSearchResult[] }
+  | { type: "delta"; content: string }
+  | { type: "done"; answer: string | null }
+  | { type: "error"; message: string };
 
 export const VAULT_ALLOWED_TYPES = [
   "application/pdf",
