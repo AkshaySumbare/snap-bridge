@@ -7,14 +7,6 @@ import { SidebarNavGroup } from "./SidebarNavGroup";
 import { ProfileMenu } from "./ProfileMenu";
 import { cn } from "@/lib/cn";
 
-function SoonBadge() {
-  return (
-    <span className="ml-auto rounded-md bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-      Soon
-    </span>
-  );
-}
-
 export function AppSidebar() {
   const { isOpen, isCollapsed, setOpen } = useSidebarStore();
 
@@ -82,11 +74,11 @@ export function AppSidebar() {
           )}
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto p-2" aria-label="Main navigation">
+        <nav className="flex-1 space-y-3 overflow-y-auto p-3" aria-label="Main navigation">
           {NAV_ENTRIES.map((entry) => {
             if (entry.type === "link") {
-              const Icon = entry.icon;
               if (!entry.available) return null;
+              const Icon = entry.icon;
               return (
                 <NavLink
                   key={entry.to}
@@ -95,7 +87,7 @@ export function AppSidebar() {
                   onClick={closeMobile}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors",
                       isCollapsed && "justify-center px-2",
                       isActive
                         ? "bg-[var(--color-surface-muted)] text-[var(--color-text)]"
@@ -109,40 +101,18 @@ export function AppSidebar() {
               );
             }
 
-            if (entry.type === "group" && entry.available) {
+            if (entry.type === "group") {
               return (
                 <SidebarNavGroup
                   key={entry.label}
                   label={entry.label}
                   icon={entry.icon}
                   basePath={entry.basePath}
-                  children={entry.children}
+                  items={entry.children}
+                  available={entry.available}
                   collapsed={isCollapsed}
                   onNavigate={closeMobile}
                 />
-              );
-            }
-
-            if (entry.type === "soon") {
-              const Icon = entry.icon;
-              return (
-                <span
-                  key={entry.label}
-                  title={isCollapsed ? `${entry.label} — Coming soon` : undefined}
-                  className={cn(
-                    "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--color-text-muted)] opacity-50",
-                    isCollapsed && "justify-center px-2",
-                  )}
-                  aria-disabled="true"
-                >
-                  <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-                  {!isCollapsed && (
-                    <>
-                      <span className="truncate">{entry.label}</span>
-                      <SoonBadge />
-                    </>
-                  )}
-                </span>
               );
             }
 

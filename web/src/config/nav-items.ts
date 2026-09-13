@@ -1,8 +1,13 @@
 import {
   BarChart3,
+  BookOpen,
   Briefcase,
+  CheckSquare,
   Clipboard,
-  FolderOpen,
+  Clock,
+  FileSearch,
+  FileText,
+  FolderKanban,
   GitCompare,
   GraduationCap,
   History,
@@ -12,12 +17,16 @@ import {
   Mic,
   Network,
   QrCode,
+  Search,
+  Share2,
   Sparkles,
   Upload,
   Wallet,
   Workflow,
-  CheckSquare,
   FileStack,
+  FolderOpen,
+  Tags,
+  Image,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,27 +40,22 @@ export interface NavLinkItem {
 
 export interface NavGroupChild {
   label: string;
-  to: string;
   icon: LucideIcon;
+  to?: string;
+  available: boolean;
 }
 
 export interface NavGroupItem {
   type: "group";
   label: string;
   icon: LucideIcon;
+  /** True when at least one child route is live */
   available: boolean;
   basePath: string;
   children: NavGroupChild[];
 }
 
-export interface NavSoonItem {
-  type: "soon";
-  label: string;
-  phase?: number;
-  icon: LucideIcon;
-}
-
-export type NavEntry = NavLinkItem | NavGroupItem | NavSoonItem;
+export type NavEntry = NavLinkItem | NavGroupItem;
 
 export const NAV_ENTRIES: NavEntry[] = [
   {
@@ -61,6 +65,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     available: true,
     icon: LayoutDashboard,
   },
+
+  // ── Phase 2 — Live ──────────────────────────────────────────────────────────
   {
     type: "group",
     label: "Knowledge Vault",
@@ -68,26 +74,76 @@ export const NAV_ENTRIES: NavEntry[] = [
     available: true,
     basePath: "/vault",
     children: [
-      { label: "Upload", to: "/vault/upload", icon: Upload },
-      { label: "Documents", to: "/vault/documents", icon: FileStack },
-      { label: "Folders", to: "/vault/folders", icon: FolderOpen },
-      { label: "Ask AI", to: "/vault/ask", icon: MessageSquareText },
+      { label: "Upload", to: "/vault/upload", icon: Upload, available: true },
+      { label: "Documents", to: "/vault/documents", icon: FileStack, available: true },
+      { label: "Folders", to: "/vault/folders", icon: FolderOpen, available: true },
+      { label: "Ask AI", to: "/vault/ask", icon: MessageSquareText, available: true },
     ],
   },
 
-  // Coming soon
-  { type: "soon", label: "Clipboard Sync", phase: 1, icon: Clipboard },
-  { type: "soon", label: "Device Pairing", phase: 1, icon: QrCode },
-  { type: "soon", label: "Capture History", phase: 1, icon: History },
-  { type: "soon", label: "Projects", phase: 3, icon: FolderOpen },
-  { type: "soon", label: "Smart Flows", phase: 4, icon: Workflow },
-  { type: "soon", label: "Interview Prep", phase: 4, icon: Briefcase },
-  { type: "soon", label: "Study Planner", phase: 4, icon: GraduationCap },
-  { type: "soon", label: "Compare Documents", phase: 4, icon: GitCompare },
-  { type: "soon", label: "Finance Insights", phase: 4, icon: Wallet },
-  { type: "soon", label: "Tasks", phase: 4, icon: CheckSquare },
-  { type: "soon", label: "Knowledge Graph", phase: 5, icon: Network },
-  { type: "soon", label: "Mock Interview", phase: 5, icon: Mic },
-  { type: "soon", label: "Insights", phase: 5, icon: BarChart3 },
-  { type: "soon", label: "Custom Flows", phase: 5, icon: Sparkles },
+  // ── Phase 1 — Capture Sync ────────────────────────────────────────────────
+  {
+    type: "group",
+    label: "Capture Sync",
+    icon: Share2,
+    available: false,
+    basePath: "/capture",
+    children: [
+      { label: "Device Pairing", icon: QrCode, available: false },
+      { label: "Clipboard Sync", icon: Clipboard, available: false },
+      { label: "Capture History", icon: History, available: false },
+      { label: "Screenshot Vault", icon: Image, available: false },
+    ],
+  },
+
+  // ── Phase 3 — Project Intelligence ────────────────────────────────────────
+  {
+    type: "group",
+    label: "Project Intelligence",
+    icon: FolderKanban,
+    available: false,
+    basePath: "/intelligence",
+    children: [
+      { label: "Projects", icon: FolderKanban, available: false },
+      { label: "Universal Search", icon: Search, available: false },
+      { label: "PDF Chat", icon: MessageSquareText, available: false },
+      { label: "Folder Q&A", icon: FileText, available: false },
+      { label: "Timeline", icon: Clock, available: false },
+      { label: "Saved Searches", icon: BookOpen, available: false },
+      { label: "OCR Search", icon: FileSearch, available: false },
+      { label: "Tags", icon: Tags, available: false },
+    ],
+  },
+
+  // ── Phase 4 — Smart Flows ───────────────────────────────────────────────────
+  {
+    type: "group",
+    label: "Smart Flows",
+    icon: Workflow,
+    available: false,
+    basePath: "/flows",
+    children: [
+      { label: "Flow Hub", icon: Workflow, available: false },
+      { label: "Interview Prep", icon: Briefcase, available: false },
+      { label: "Study Planner", icon: GraduationCap, available: false },
+      { label: "Compare Documents", icon: GitCompare, available: false },
+      { label: "Finance Insights", icon: Wallet, available: false },
+      { label: "Tasks", icon: CheckSquare, available: false },
+    ],
+  },
+
+  // ── Phase 5 — Advanced Platform ───────────────────────────────────────────
+  {
+    type: "group",
+    label: "Advanced Platform",
+    icon: Sparkles,
+    available: false,
+    basePath: "/advanced",
+    children: [
+      { label: "Knowledge Graph", icon: Network, available: false },
+      { label: "Mock Interview", icon: Mic, available: false },
+      { label: "Insights", icon: BarChart3, available: false },
+      { label: "Custom Flows", icon: Sparkles, available: false },
+    ],
+  },
 ];
