@@ -21,7 +21,7 @@ export function DashboardPage() {
           Welcome, {displayName}
         </h1>
         <p className="mt-2 text-[var(--color-text-muted)]">
-          Your SnapBridge account is ready. Capture sync features are coming soon.
+          Upload documents to Knowledge Vault and ask questions with semantic AI search.
         </p>
       </div>
 

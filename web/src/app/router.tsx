@@ -10,6 +10,10 @@ import { ForgotPasswordPage } from "@/features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/pages/ResetPasswordPage";
 import { DashboardPage } from "@/features/auth/pages/DashboardPage";
 import { VerifyEmailPage } from "@/features/auth/pages/VerifyEmailPage";
+import { VaultUploadPage } from "@/features/vault/pages/VaultUploadPage";
+import { VaultDocumentsPage } from "@/features/vault/pages/VaultDocumentsPage";
+import { VaultFoldersPage } from "@/features/vault/pages/VaultFoldersPage";
+import { VaultChatPage } from "@/features/vault/pages/VaultChatPage";
 
 export const router = createBrowserRouter([
   {
@@ -39,7 +43,14 @@ export const router = createBrowserRouter([
         children: [
           {
             element: <AppLayout />,
-            children: [{ path: "/dashboard", element: <DashboardPage /> }],
+            children: [
+              { path: "/dashboard", element: <DashboardPage /> },
+              { path: "/vault/upload", element: <VaultUploadPage /> },
+              { path: "/vault/documents", element: <VaultDocumentsPage /> },
+              { path: "/vault/folders", element: <VaultFoldersPage /> },
+              { path: "/vault/ask", element: <VaultChatPage /> },
+              { path: "/vault", element: <VaultUploadPage /> },
+            ],
           },
         ],
       },

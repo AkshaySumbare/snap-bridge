@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { Zap } from "lucide-react";
-import { NAV_ITEMS } from "@/config/nav-items";
+import { NAV_ENTRIES } from "@/config/nav-items";
 import { useSidebarStore } from "@/stores/sidebar.store";
 import { SidebarToggle } from "./SidebarToggle";
+import { SidebarNavGroup } from "./SidebarNavGroup";
 import { ProfileMenu } from "./ProfileMenu";
 import { cn } from "@/lib/cn";
 
@@ -16,6 +17,10 @@ function SoonBadge() {
 
 export function AppSidebar() {
   const { isOpen, isCollapsed, setOpen } = useSidebarStore();
+
+  function closeMobile() {
+    if (window.innerWidth < 768) setOpen(false);
+  }
 
   return (
     <>
@@ -36,7 +41,6 @@ export function AppSidebar() {
           isOpen ? "w-[260px] translate-x-0" : "-translate-x-full w-[260px]",
         )}
       >
-        {/* Header: brand + collapse toggle */}
         <div
           className={cn(
             "flex h-14 shrink-0 items-center border-b border-[var(--color-border)] px-3",
@@ -57,15 +61,12 @@ export function AppSidebar() {
             </>
           ) : (
             <>
-              {/* Mobile drawer: keep toggle visible when collapsed state is persisted */}
               <div className="flex flex-col items-center gap-2 md:hidden">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
                   <Zap className="h-4 w-4" />
                 </div>
                 <SidebarToggle />
               </div>
-
-              {/* Desktop collapsed: logo by default, toggle on hover */}
               <div className="group relative hidden h-9 w-9 items-center justify-center md:flex">
                 <div
                   aria-hidden
@@ -81,20 +82,17 @@ export function AppSidebar() {
           )}
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-
-            if (item.available && item.to) {
+          {NAV_ENTRIES.map((entry) => {
+            if (entry.type === "link") {
+              const Icon = entry.icon;
+              if (!entry.available) return null;
               return (
                 <NavLink
-                  key={item.label}
-                  to={item.to}
-                  title={isCollapsed ? item.label : undefined}
-                  onClick={() => {
-                    if (window.innerWidth < 768) setOpen(false);
-                  }}
+                  key={entry.to}
+                  to={entry.to}
+                  title={isCollapsed ? entry.label : undefined}
+                  onClick={closeMobile}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
@@ -106,34 +104,52 @@ export function AppSidebar() {
                   }
                 >
                   <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  {!isCollapsed && <span className="truncate">{entry.label}</span>}
                 </NavLink>
               );
             }
 
-            return (
-              <span
-                key={item.label}
-                title={isCollapsed ? `${item.label} — Coming soon` : undefined}
-                className={cn(
-                  "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--color-text-muted)] opacity-50",
-                  isCollapsed && "justify-center px-2",
-                )}
-                aria-disabled="true"
-              >
-                <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-                {!isCollapsed && (
-                  <>
-                    <span className="truncate">{item.label}</span>
-                    <SoonBadge />
-                  </>
-                )}
-              </span>
-            );
+            if (entry.type === "group" && entry.available) {
+              return (
+                <SidebarNavGroup
+                  key={entry.label}
+                  label={entry.label}
+                  icon={entry.icon}
+                  basePath={entry.basePath}
+                  children={entry.children}
+                  collapsed={isCollapsed}
+                  onNavigate={closeMobile}
+                />
+              );
+            }
+
+            if (entry.type === "soon") {
+              const Icon = entry.icon;
+              return (
+                <span
+                  key={entry.label}
+                  title={isCollapsed ? `${entry.label} — Coming soon` : undefined}
+                  className={cn(
+                    "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--color-text-muted)] opacity-50",
+                    isCollapsed && "justify-center px-2",
+                  )}
+                  aria-disabled="true"
+                >
+                  <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate">{entry.label}</span>
+                      <SoonBadge />
+                    </>
+                  )}
+                </span>
+              );
+            }
+
+            return null;
           })}
         </nav>
 
-        {/* Bottom: profile */}
         <div className="shrink-0 border-t border-[var(--color-border)] p-2">
           <ProfileMenu collapsed={isCollapsed} />
         </div>
