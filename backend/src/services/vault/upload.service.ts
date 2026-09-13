@@ -51,6 +51,24 @@ export function getUploadSignature(userId: string, mimeType: string, fileName?: 
   };
 }
 
+/** Cloudinary raw uploads (PDF/DOCX) often return no `format` — derive from public_id or mime. */
+export function deriveFileFormat(
+  publicId: string,
+  mimeType: string,
+  format?: string,
+): string {
+  if (format?.trim()) return format.trim().toLowerCase();
+
+  const fileName = publicId.split("/").pop() ?? publicId;
+  const ext = fileName.includes(".") ? fileName.split(".").pop() : undefined;
+  if (ext) return ext.toLowerCase();
+
+  const fromMime = mime.extension(mimeType);
+  if (fromMime) return fromMime;
+
+  return "bin";
+}
+
 export async function verifyVaultUpload(
   publicId: string,
   resourceType: CloudinaryResourceType,

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { vaultApi } from "../api/vault.api";
+import { vaultApi, type VaultUploadCallbacks } from "../api/vault.api";
 
 export function useFolders() {
   return useQuery({
@@ -38,8 +38,12 @@ export function useDocument(id: string) {
 export function useUploadDocument() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ file, folderId }: { file: File; folderId?: string }) =>
-      vaultApi.uploadFile(file, folderId),
+    mutationFn: ({
+      file,
+      folderId,
+      ...callbacks
+    }: { file: File; folderId?: string } & VaultUploadCallbacks) =>
+      vaultApi.uploadFile(file, folderId, callbacks),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vault", "documents"] });
     },

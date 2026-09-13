@@ -12,7 +12,8 @@ export const uploadConfirmSchema = z.object({
   publicId: z.string().min(1).max(500),
   secureUrl: z.string().url(),
   mimeType: mimeTypeSchema,
-  format: z.string().min(1).max(20),
+  /** Optional — Cloudinary raw/PDF uploads often omit format; server derives from file name */
+  format: z.string().min(1).max(20).optional(),
   bytes: z.number().int().positive(),
   resourceType: z.enum(["image", "raw", "video", "auto"]),
   title: z.string().trim().min(1).max(200).optional(),

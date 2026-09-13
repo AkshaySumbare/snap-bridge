@@ -32,7 +32,12 @@ export function VaultDocumentsPage() {
   const retryAll = useRetryAllFailed();
   const deleteDoc = useDeleteDocument();
 
-  const failedCount = data?.documents.filter((d) => d.status === "failed").length ?? 0;
+  const retryableCount =
+    data?.documents.filter(
+      (d) =>
+        d.status === "failed" ||
+        (d.status === "ready" && d.chunkCount === 0 && d.processingError),
+    ).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -43,7 +48,7 @@ export function VaultDocumentsPage() {
             Processing status, chunks, and retry failed uploads.
           </p>
         </div>
-        {failedCount > 0 && (
+        {retryableCount > 0 && (
           <Button
             variant="secondary"
             size="sm"
@@ -51,7 +56,7 @@ export function VaultDocumentsPage() {
             onClick={() => retryAll.mutate()}
           >
             <RefreshCw className="h-4 w-4" />
-            Retry all failed ({failedCount})
+            Retry all ({retryableCount})
           </Button>
         )}
       </div>
@@ -113,7 +118,9 @@ export function VaultDocumentsPage() {
                   >
                     <ExternalLink className="h-4 w-4" />
                   </a>
-                  {(doc.status === "failed" || doc.processingError) && (
+                  {(doc.status === "failed" ||
+                    doc.processingError ||
+                    (doc.status === "ready" && doc.chunkCount === 0)) && (
                     <Button
                       variant="secondary"
                       size="sm"

@@ -61,6 +61,46 @@ export async function createDocumentRecord(
   return doc;
 }
 
+export async function findDocumentByPublicId(userId: string, cloudinaryPublicId: string) {
+  return VaultDocument.findOne({
+    userId: new Types.ObjectId(userId),
+    cloudinaryPublicId,
+  });
+}
+
+/** Confirm upload: create new doc or return existing + re-queue if already uploaded. */
+export async function confirmVaultUpload(
+  userId: string,
+  data: {
+    title: string;
+    mimeType: string;
+    cloudinaryPublicId: string;
+    secureUrl: string;
+    resourceType: CloudinaryResourceType;
+    format: string;
+    bytes: number;
+    folderId?: string;
+  },
+) {
+  const existing = await findDocumentByPublicId(userId, data.cloudinaryPublicId);
+  if (existing) {
+    existing.secureUrl = data.secureUrl;
+    existing.bytes = data.bytes;
+    existing.format = data.format;
+    if (existing.status !== "processing") {
+      existing.status = "processing";
+      existing.processingError = undefined;
+      await existing.save();
+      await enqueueDocumentProcessing(existing._id.toString(), { replaceExisting: true });
+    }
+    return { document: existing, created: false, requeued: true };
+  }
+
+  const doc = await createDocumentRecord(userId, data);
+  await enqueueDocumentProcessing(doc._id.toString());
+  return { document: doc, created: true, requeued: false };
+}
+
 export async function processDocument(documentId: string): Promise<void> {
   const doc = await VaultDocument.findById(documentId);
   if (!doc) return;
@@ -228,11 +268,18 @@ export async function retryDocumentProcessing(userId: string, documentId: string
   return toPublicVaultDocument(doc);
 }
 
-/** Retry every failed document for the current user. */
+/** Retry failed docs and docs that finished without embeddings (e.g. API key was missing). */
 export async function retryAllFailedDocuments(userId: string) {
   const failed = await VaultDocument.find({
     userId: new Types.ObjectId(userId),
-    status: "failed",
+    $or: [
+      { status: "failed" },
+      {
+        status: "ready",
+        chunkCount: 0,
+        processingError: { $exists: true, $ne: null },
+      },
+    ],
   });
 
   const retried: string[] = [];

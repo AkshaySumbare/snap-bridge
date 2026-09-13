@@ -13,7 +13,6 @@ import * as uploadService from "../services/vault/upload.service.js";
 import * as documentService from "../services/vault/document.service.js";
 import * as folderService from "../services/vault/folder.service.js";
 import * as semanticSearchService from "../services/vault/semantic-search.service.js";
-import { enqueueDocumentProcessing } from "../queues/document.queue.js";
 import { toPublicVaultDocument } from "../models/vault/Document.js";
 
 const router = Router();
@@ -57,27 +56,36 @@ router.post(
     const { auth } = req as AuthedRequest;
     await uploadService.verifyVaultUpload(parsed.data.publicId, parsed.data.resourceType);
 
+    const format = uploadService.deriveFileFormat(
+      parsed.data.publicId,
+      parsed.data.mimeType,
+      parsed.data.format,
+    );
+
     const title =
       parsed.data.title ??
       parsed.data.publicId.split("/").pop()?.replace(/\.[^.]+$/, "") ??
       "Untitled document";
 
-    const doc = await documentService.createDocumentRecord(auth.userId, {
+    const result = await documentService.confirmVaultUpload(auth.userId, {
       title,
       mimeType: parsed.data.mimeType,
       cloudinaryPublicId: parsed.data.publicId,
       secureUrl: parsed.data.secureUrl,
       resourceType: parsed.data.resourceType,
-      format: parsed.data.format,
+      format,
       bytes: parsed.data.bytes,
       folderId: parsed.data.folderId,
     });
 
-    await enqueueDocumentProcessing(doc._id.toString());
+    const message = result.created
+      ? "Upload confirmed. Document is being processed."
+      : "Document already exists — re-queued for processing.";
 
-    res.status(201).json({
-      document: toPublicVaultDocument(doc),
-      message: "Upload confirmed. Document is being processed.",
+    res.status(result.created ? 201 : 200).json({
+      document: toPublicVaultDocument(result.document),
+      message,
+      requeued: result.requeued,
     });
   }),
 );
