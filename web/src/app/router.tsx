@@ -14,6 +14,10 @@ import { VaultUploadPage } from "@/features/vault/pages/VaultUploadPage";
 import { VaultDocumentsPage } from "@/features/vault/pages/VaultDocumentsPage";
 import { VaultFoldersPage } from "@/features/vault/pages/VaultFoldersPage";
 import { VaultChatPage } from "@/features/vault/pages/VaultChatPage";
+import { PresenterPage } from "@/features/presenter/pages/PresenterPage";
+import { PresenterCreatePage } from "@/features/presenter/pages/PresenterCreatePage";
+import { PresenterWorkspacePage } from "@/features/presenter/pages/PresenterWorkspacePage";
+import { PresenterInvitePage } from "@/features/presenter/pages/PresenterInvitePage";
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +54,10 @@ export const router = createBrowserRouter([
               { path: "/vault/folders", element: <VaultFoldersPage /> },
               { path: "/vault/ask", element: <VaultChatPage /> },
               { path: "/vault", element: <VaultUploadPage /> },
+              { path: "/presenter", element: <PresenterPage /> },
+              { path: "/presenter/create", element: <PresenterCreatePage /> },
+              { path: "/presenter/invite/:token", element: <PresenterInvitePage /> },
+              { path: "/presenter/:presenterId", element: <PresenterWorkspacePage /> },
             ],
           },
         ],

@@ -83,6 +83,29 @@ export async function sendVerificationOtpEmail(
   });
 }
 
+export async function sendPresenterInviteEmail(
+  email: string,
+  presenterName: string,
+  acceptUrl: string,
+): Promise<void> {
+  await sendEmail({
+    to: email,
+    subject: `You've been invited to “${presenterName}” on SnapBridge Presenter`,
+    text: `You've been invited to collaborate on “${presenterName}” in Presenter. Open this link to join:\n\n${acceptUrl}\n`,
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #4f46e5; margin-bottom: 8px;">SnapBridge Presenter</h2>
+        <p>You've been invited to collaborate on <strong>${presenterName}</strong>.</p>
+        <a href="${acceptUrl}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 16px 0;">
+          Open presenter
+        </a>
+        <p style="color: #64748b; font-size: 14px; word-break: break-all;">${acceptUrl}</p>
+      </div>
+    `,
+    idempotencyKey: `presenter-invite/${email}/${acceptUrl}`,
+  });
+}
+
 export async function sendPasswordResetEmail(
   email: string,
   resetUrl: string,

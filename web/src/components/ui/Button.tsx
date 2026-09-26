@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { Loader } from "./Loader";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "outline" | "destructive";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
 }
@@ -21,11 +21,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           size === "lg" && "h-12 px-6 text-base",
           variant === "primary" &&
             "bg-brand-600 text-white shadow-lg shadow-brand-600/25 hover:bg-brand-700 dark:shadow-brand-900/40",
-          variant === "secondary" &&
+          (variant === "secondary" || variant === "outline") &&
             "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]",
           variant === "ghost" &&
             "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]",
           variant === "danger" && "bg-red-600 text-white hover:bg-red-700",
+          variant === "destructive" && "bg-red-600 text-white hover:bg-red-700",
           className,
         )}
         {...props}

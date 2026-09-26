@@ -16,6 +16,8 @@ import {
   MessageSquareText,
   Mic,
   Network,
+  Plus,
+  Presentation,
   QrCode,
   Search,
   Share2,
@@ -78,6 +80,18 @@ export const NAV_ENTRIES: NavEntry[] = [
       { label: "Documents", to: "/vault/documents", icon: FileStack, available: true },
       { label: "Folders", to: "/vault/folders", icon: FolderOpen, available: true },
       { label: "Ask AI", to: "/vault/ask", icon: MessageSquareText, available: true },
+    ],
+  },
+
+  {
+    type: "group",
+    label: "Presenter",
+    icon: Presentation,
+    available: true,
+    basePath: "/presenter",
+    children: [
+      { label: "Library", to: "/presenter", icon: Presentation, available: true },
+      { label: "Create", to: "/presenter/create", icon: Plus, available: true },
     ],
   },
 
