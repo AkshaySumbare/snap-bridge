@@ -48,6 +48,12 @@ export const profileApi = {
       method: "DELETE",
     }),
 
+  deleteAccount: (input: { confirm: true; password?: string }) =>
+    apiFetch<{ success: boolean; message: string }>("/profile/account", {
+      method: "DELETE",
+      body: JSON.stringify(input),
+    }),
+
   async uploadAvatar(file: File): Promise<ProfileAvatarResponse> {
     if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
       throw new ApiError(400, "Only JPEG, PNG, WebP, and GIF images are allowed");

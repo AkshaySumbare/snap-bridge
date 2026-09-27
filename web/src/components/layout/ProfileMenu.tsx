@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Camera,
   ChevronRight,
@@ -21,6 +22,7 @@ interface ProfileMenuProps {
 }
 
 export function ProfileMenu({ collapsed = false }: ProfileMenuProps) {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const uploadAvatar = useUploadAvatar();
@@ -161,8 +163,11 @@ export function ProfileMenu({ collapsed = false }: ProfileMenuProps) {
             )}
             <MenuItem
               icon={<User className="h-4 w-4" />}
-              label="Profile"
-              onClick={() => setOpen(false)}
+              label="Settings"
+              onClick={() => {
+                setOpen(false);
+                navigate("/settings");
+              }}
             />
             <MenuItem
               icon={isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

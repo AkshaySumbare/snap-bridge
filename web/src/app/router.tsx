@@ -18,6 +18,7 @@ import { PresenterPage } from "@/features/presenter/pages/PresenterPage";
 import { PresenterCreatePage } from "@/features/presenter/pages/PresenterCreatePage";
 import { PresenterWorkspacePage } from "@/features/presenter/pages/PresenterWorkspacePage";
 import { PresenterInvitePage } from "@/features/presenter/pages/PresenterInvitePage";
+import { SettingsPage } from "@/features/profile/pages/SettingsPage";
 
 export const router = createBrowserRouter([
   {
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
             element: <AppLayout />,
             children: [
               { path: "/dashboard", element: <DashboardPage /> },
+              { path: "/settings", element: <SettingsPage /> },
               { path: "/vault/upload", element: <VaultUploadPage /> },
               { path: "/vault/documents", element: <VaultDocumentsPage /> },
               { path: "/vault/folders", element: <VaultFoldersPage /> },
