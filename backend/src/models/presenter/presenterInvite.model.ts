@@ -26,6 +26,11 @@ const presenterInviteSchema = new Schema<IPresenterInvite>(
 );
 
 presenterInviteSchema.index({ presenterId: 1, email: 1, status: 1 });
+/** One pending invite per email per presenter. */
+presenterInviteSchema.index(
+  { presenterId: 1, email: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" } },
+);
 
 export const PresenterInvite: Model<IPresenterInvite> =
   mongoose.models.PresenterInvite ??

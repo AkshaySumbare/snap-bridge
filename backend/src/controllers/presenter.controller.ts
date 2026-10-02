@@ -38,6 +38,7 @@ import {
 import { effectiveParseStatus, presentParse } from "../services/presenter/parse/parseStatus.js";
 import type { PresenterScopedRequest } from "../middleware/presenterScope.js";
 import type { AuthedRequest } from "../middleware/auth.js";
+import { AppError } from "../utils/errors.js";
 
 const actor = (req: Request) => {
   const auth = (req as AuthedRequest).auth;
@@ -436,7 +437,27 @@ export const inviteCollaborator: RequestHandler = async (req: PresenterScopedReq
   if (!parsed.success) {
     return fail(res, 400, "INVALID_PAYLOAD", undefined, { issues: parsed.error.issues });
   }
-  ok(res, await inviteService.inviteByEmail(req.presenterId!, req.userObjectId!, parsed.data.email), 201);
+  const result = await inviteService.inviteByEmail(
+    req.presenterId!,
+    req.userObjectId!,
+    parsed.data.email,
+  );
+  const status = result.kind === "invite" && !("alreadyPending" in result && result.alreadyPending) ? 201 : 200;
+  ok(res, result, status);
+};
+
+export const revokeInvite: RequestHandler = async (req: PresenterScopedRequest, res: Response) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.inviteId)) {
+    return fail(res, 400, "INVALID_INVITE_ID");
+  }
+  ok(
+    res,
+    await inviteService.revokePendingInvite(
+      req.presenterId!,
+      req.userObjectId!,
+      new mongoose.Types.ObjectId(req.params.inviteId),
+    ),
+  );
 };
 
 export const acceptInvite: RequestHandler = async (req: Request, res: Response) => {
@@ -464,6 +485,13 @@ export const presenterErrorHandler = (
   // The case was purged while this request was writing into it.
   if (error instanceof PresenterGoneError) {
     res.status(410).json({ success: false, error: { code: "PRESENTER_DELETED" } });
+    return;
+  }
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({
+      success: false,
+      error: { code: "REQUEST_FAILED", message: error.message },
+    });
     return;
   }
   console.error("[presenter] unhandled error", error);

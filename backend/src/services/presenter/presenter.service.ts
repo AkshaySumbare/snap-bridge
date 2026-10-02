@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 import Presenter from "../../models/presenter/presenter.model.js";
+import { PresenterInvite } from "../../models/presenter/presenterInvite.model.js";
+import { User } from "../../models/User.js";
 import PresenterDocument from "../../models/presenter/presenterDocument.model.js";
 import PresenterPage from "../../models/presenter/presenterPage.model.js";
 import { PresenterHighlight } from "../../models/presenter/presenterNodes.model.js";
@@ -247,6 +249,18 @@ export const setSharedWith = async (
     },
     { new: true },
   ).lean();
+
+  if (updated && nextShared.length > 0) {
+    const members = await User.find({ _id: { $in: nextShared } }, { email: 1 }).lean();
+    const emails = members.map((member) => member.email?.trim().toLowerCase()).filter(Boolean);
+    if (emails.length > 0) {
+      await PresenterInvite.updateMany(
+        { presenterId, email: { $in: emails }, status: "pending" },
+        { $set: { status: "revoked" } },
+      );
+    }
+  }
+
   return updated ? toPresenterDto(updated, ownerId) : null;
 };
 
@@ -266,5 +280,17 @@ export const revokeShare = async (
     },
     { new: true },
   ).lean();
+
+  if (updated) {
+    const user = await User.findById(userId, { email: 1 }).lean();
+    if (user?.email) {
+      const normalized = user.email.trim().toLowerCase();
+      await PresenterInvite.updateMany(
+        { presenterId, email: normalized, status: "pending" },
+        { $set: { status: "revoked" } },
+      );
+    }
+  }
+
   return updated ? toPresenterDto(updated, ownerId) : null;
 };

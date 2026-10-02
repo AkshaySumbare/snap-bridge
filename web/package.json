@@ -13,12 +13,13 @@
     "@tanstack/react-query": "^5.62.8",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.1",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^2.6.0",
-    "zustand": "^5.0.2",
-    "pdfjs-dist": "^4.10.38"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

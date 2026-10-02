@@ -50,7 +50,15 @@ async function sendEmail(params: {
 
   if (error) {
     console.error("[email] Resend error:", error);
-    throw new AppError(500, "Failed to send email");
+    const detail =
+      typeof error.message === "string" && error.message.length > 0
+        ? error.message
+        : "Failed to send email";
+    const status =
+      typeof error.statusCode === "number" && error.statusCode >= 400 && error.statusCode < 600
+        ? error.statusCode
+        : 502;
+    throw new AppError(status, detail);
   }
 
   if (config.isDev) {

@@ -72,8 +72,25 @@ export async function fetchCollaborators(
   );
 }
 
+export interface InviteCollaboratorResult {
+  kind: "member" | "invite";
+  emailSent: boolean | null;
+  alreadyPending?: boolean;
+  message?: string;
+  emailFailureReason?: string;
+  acceptUrl?: string;
+  invite?: { id: string; email: string; status: string };
+  user?: { id: string; email: string; name: string | null };
+}
+
 export async function inviteCollaborator(presenterId: string, email: string) {
-  return api.post<unknown>(`${presenterBase(presenterId)}/invites`, { email });
+  return api.post<InviteCollaboratorResult>(`${presenterBase(presenterId)}/invites`, { email });
+}
+
+export async function revokePresenterInvite(presenterId: string, inviteId: string) {
+  return api.delete<{ id: string; email: string }>(
+    `${presenterBase(presenterId)}/invites/${encodeURIComponent(inviteId)}`,
+  );
 }
 
 export async function acceptPresenterInvite(token: string) {

@@ -58,6 +58,12 @@ router.post(
   requirePresenterOwner,
   asyncHandler(controller.inviteCollaborator),
 );
+router.delete(
+  "/:presenterId/invites/:inviteId",
+  presenterScope,
+  requirePresenterOwner,
+  asyncHandler(controller.revokeInvite),
+);
 
 router.get("/:presenterId/bootstrap", presenterScope, asyncHandler(controller.bootstrap));
 

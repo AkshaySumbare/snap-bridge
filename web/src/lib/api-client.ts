@@ -17,10 +17,19 @@ async function parseError(res: Response): Promise<string> {
     const data = await res.json();
     if (typeof data.error === "string") return data.error;
 
+    const envelope = data as {
+      success?: boolean;
+      error?: { code?: string; message?: string };
+    };
+    if (envelope.error?.message) return envelope.error.message;
+
     const flattened = data.error as {
       formErrors?: string[];
       fieldErrors?: Record<string, string[]>;
+      message?: string;
     };
+
+    if (flattened?.message) return flattened.message;
 
     if (flattened?.formErrors?.length) return flattened.formErrors[0];
 

@@ -13,7 +13,7 @@
  * ticking is the whole interaction — no separate save step to forget.
  */
 
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/sonner";
 
@@ -33,9 +33,10 @@ import { useAuthUserStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 import { usePresenterCollaborators, useSharePresenter, useUnsharePresenter } from "../api/use-presenter";
-import { inviteCollaborator } from "../api/presenter-api";
+import { inviteCollaborator, revokePresenterInvite } from "../api/presenter-api";
 import { useQueryClient } from "@tanstack/react-query";
 import { presenterKeys } from "../api/keys";
+import { ApiError } from "@/lib/api/errors";
 
 function displayName(user: FirmUser): string {
   const full = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
@@ -56,6 +57,29 @@ interface PresenterShareDialogProps {
   onClose: () => void;
 }
 
+type ShareNotice = {
+  variant: "success" | "warning" | "error";
+  title: string;
+  detail?: string;
+};
+
+function ShareNoticeBanner({ notice }: { notice: ShareNotice }) {
+  const styles = {
+    success: "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-100",
+    warning: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100",
+    error: "border-red-200 bg-red-50 text-red-950 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100",
+  }[notice.variant];
+
+  return (
+    <div className={cn("rounded-lg border px-3 py-2.5 text-sm", styles)} role="status">
+      <p className="font-medium">{notice.title}</p>
+      {notice.detail ? (
+        <p className="mt-1 text-xs leading-relaxed opacity-90">{notice.detail}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogProps) {
   const open = Boolean(matter);
   const directory = useFirmUsers(open);
@@ -68,6 +92,9 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
   const [query, setQuery] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [manualInviteLink, setManualInviteLink] = useState<string | null>(null);
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
+  const [shareNotice, setShareNotice] = useState<ShareNotice | null>(null);
   /**
    * Who should have access, as the reader has left it.
    *
@@ -92,6 +119,8 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
     setSelected(serverShared.current);
     setQuery("");
     setInviteEmail("");
+    setManualInviteLink(null);
+    setShareNotice(null);
   }, [matter?.id]);
 
   // Authoritative per-presenter list from the server (each presenter has its own sharedWith).
@@ -151,8 +180,16 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
       try {
         if (adding) {
           await grant.mutateAsync({ presenterId: matter.id, userIds: next });
+          await queryClient.invalidateQueries({
+            queryKey: presenterKeys.collaborators(matter.id),
+          });
+          toast.success(`${row.label} can open this presenter.`);
         } else {
           await revoke.mutateAsync({ presenterId: matter.id, userId: row.id });
+          await queryClient.invalidateQueries({
+            queryKey: presenterKeys.collaborators(matter.id),
+          });
+          toast.success(`Access removed for ${row.label}.`);
         }
       } catch {
         // Put the row back where the server still has it, so the list never
@@ -160,9 +197,11 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
         setSelected((current) =>
           adding ? current.filter((id) => id !== row.id) : [...current, row.id],
         );
-        toast.error(
-          adding ? `Could not give ${row.label} access.` : `Could not remove ${row.label}.`,
-        );
+        const detail = adding
+          ? `Could not give ${row.label} access.`
+          : `Could not revoke access for ${row.label}.`;
+        setShareNotice({ variant: "error", title: "Access update failed", detail });
+        toast.error(detail);
       } finally {
         setInFlight((current) => current.filter((id) => id !== row.id));
       }
@@ -187,6 +226,8 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
         </DialogHeader>
 
         <div className="space-y-3">
+          {shareNotice && <ShareNoticeBanner notice={shareNotice} />}
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <Input
@@ -202,16 +243,60 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
             onSubmit={async (event) => {
               event.preventDefault();
               if (!matter || !inviteEmail.trim()) return;
+              const email = inviteEmail.trim();
               setInviting(true);
+              setShareNotice(null);
               try {
-                await inviteCollaborator(matter.id, inviteEmail.trim());
+                const result = await inviteCollaborator(matter.id, email);
                 await queryClient.invalidateQueries({
                   queryKey: presenterKeys.collaborators(matter.id),
                 });
-                toast.success(`Invite sent to ${inviteEmail.trim()}`);
+                await queryClient.invalidateQueries({ queryKey: presenterKeys.list() });
+
+                if (result.kind === "member") {
+                  const title = result.message ?? `${email} now has access to this presenter.`;
+                  setShareNotice({ variant: "success", title });
+                  toast.success(title);
+                  setManualInviteLink(null);
+                } else if (result.alreadyPending) {
+                  const title =
+                    result.message ?? `An invite is already pending for ${email}.`;
+                  setShareNotice({ variant: "warning", title });
+                  toast.warning(title);
+                  if (result.acceptUrl) setManualInviteLink(result.acceptUrl);
+                } else if (result.emailSent) {
+                  const title = `Invitation emailed to ${email}.`;
+                  setShareNotice({ variant: "success", title });
+                  toast.success(title);
+                  setManualInviteLink(null);
+                } else {
+                  const title =
+                    result.message ??
+                    `Invite to ${email} was saved, but the email could not be sent.`;
+                  const detail = result.emailFailureReason
+                    ? `Email error: ${result.emailFailureReason}`
+                    : "Copy the invite link below and send it to them directly.";
+                  setShareNotice({ variant: "warning", title, detail });
+                  toast.warning(title, { description: detail, duration: 12_000 });
+                  if (result.acceptUrl) {
+                    setManualInviteLink(result.acceptUrl);
+                    try {
+                      await navigator.clipboard.writeText(result.acceptUrl);
+                      toast.info("Invite link copied to clipboard.");
+                    } catch {
+                      /* clipboard optional */
+                    }
+                  }
+                }
                 setInviteEmail("");
-              } catch {
-                toast.error("Could not send invite.");
+              } catch (error) {
+                const detail =
+                  error instanceof ApiError
+                    ? error.message
+                    : "Could not send invite. Try again or use the access list above.";
+                const title = `Invite to ${email} failed.`;
+                setShareNotice({ variant: "error", title, detail });
+                toast.error(title, { description: detail, duration: 12_000 });
               } finally {
                 setInviting(false);
               }
@@ -219,22 +304,87 @@ export function PresenterShareDialog({ matter, onClose }: PresenterShareDialogPr
           >
             <Input
               value={inviteEmail}
-              onChange={(event) => setInviteEmail(event.target.value)}
+              onChange={(event) => {
+                setInviteEmail(event.target.value);
+                setShareNotice(null);
+              }}
               placeholder="Invite by email…"
               type="email"
             />
-            <Button type="submit" size="sm" disabled={inviting || !inviteEmail.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                inviting ||
+                !inviteEmail.trim() ||
+                collaborators.data?.invites.some(
+                  (invite) =>
+                    invite.email.toLowerCase() === inviteEmail.trim().toLowerCase(),
+                ) === true
+              }
+            >
               Invite
             </Button>
           </form>
 
+          <p className="text-xs text-text-muted">
+            People with accounts: check their name to grant access, uncheck to revoke. Email
+            invites are for people not in the list yet.
+          </p>
+
+          {manualInviteLink && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <p className="text-xs font-medium text-foreground">Share this invite link</p>
+              <p className="mt-1 break-all font-mono text-[11px] text-text-muted">{manualInviteLink}</p>
+            </div>
+          )}
+
           {collaborators.data && collaborators.data.invites.length > 0 && (
             <div className="rounded-lg border border-border-subtle bg-surface-sunken/50 px-3 py-2">
-              <p className="text-xs font-medium text-foreground">Pending invites (this presenter only)</p>
+              <p className="text-xs font-medium text-foreground">Pending email invites</p>
               <ul className="mt-1.5 space-y-1">
                 {collaborators.data.invites.map((invite) => (
-                  <li key={invite.id} className="truncate text-xs text-text-muted">
-                    {invite.email}
+                  <li key={invite.id} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs text-text-muted">
+                      {invite.email}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={cancellingInviteId === invite.id}
+                      onClick={async () => {
+                        if (!matter) return;
+                        setCancellingInviteId(invite.id);
+                        try {
+                          await revokePresenterInvite(matter.id, invite.id);
+                          await queryClient.invalidateQueries({
+                            queryKey: presenterKeys.collaborators(matter.id),
+                          });
+                          toast.success(`Invite cancelled for ${invite.email}.`);
+                          if (
+                            manualInviteLink &&
+                            inviteEmail.trim().toLowerCase() === invite.email.toLowerCase()
+                          ) {
+                            setManualInviteLink(null);
+                          }
+                        } catch (error) {
+                          const message =
+                            error instanceof ApiError
+                              ? error.message
+                              : "Could not cancel invite.";
+                          toast.error(message);
+                        } finally {
+                          setCancellingInviteId(null);
+                        }
+                      }}
+                      className="flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium text-text-secondary hover:bg-surface-sunken hover:text-foreground disabled:opacity-50"
+                    >
+                      {cancellingInviteId === invite.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                      Cancel
+                    </button>
                   </li>
                 ))}
               </ul>
